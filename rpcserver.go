@@ -1038,7 +1038,7 @@ func (r *rpcServer) CloseChannel(in *lnrpc.CloseChannelRequest,
 
 	var neighbourID [33]byte
 	copy(neighbourID[:], channel.State().IdentityPub.SerializeCompressed())
-	r.server.fundingMgr.cfg.UpdateRipRouter(RIP.LINK_ADD, neighbourID)
+	r.server.fundingMgr.cfg.UpdateRipRouter(RIP.LINK_REMOVE, neighbourID)
 
 	// If a force closure was requested, then we'll handle all the details
 	// around the creation and broadcast of the unilateral closure

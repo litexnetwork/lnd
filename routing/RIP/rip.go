@@ -19,6 +19,8 @@ type RIPRouter struct {
 	RouteTable   []ripRouterEntry
 	SelfNode     [33]byte
 	UpdateBuffer chan *RIPUpdateMsg
+	RequestBuffer chan *RIPRequestMsg
+	ResponseBuffer chan *RIPResponseMsg
 	LinkChangeChan chan *LinkChange
 	Neighbours   map[[33]byte]struct{}
 	SendToPeer   func(target *btcec.PublicKey, msgs ...lnwire.Message) error
@@ -28,6 +30,16 @@ type RIPRouter struct {
 
 type RIPUpdateMsg struct {
 	msg *lnwire.RIPUpdate
+	addr *lnwire.NetAddress
+}
+
+type RIPRequestMsg struct {
+	msg *lnwire.RIPRequest
+	addr *lnwire.NetAddress
+}
+
+type RIPResponseMsg struct {
+	msg *lnwire.RIPResponse
 	addr *lnwire.NetAddress
 }
 
@@ -48,6 +60,8 @@ func NewRIPRouter(db *channeldb.DB, selfNode [33]byte) *RIPRouter {
 		DB:           db,
 		SelfNode:     selfNode,
 		UpdateBuffer: make(chan *RIPUpdateMsg, NUM_RIP_BUFFER),
+		RequestBuffer: make(chan *RIPRequestMsg, NUM_RIP_BUFFER),
+		ResponseBuffer: make(chan *RIPResponseMsg, NUM_RIP_BUFFER),
 		LinkChangeChan: make(chan *LinkChange, NUM_RIP_BUFFER),
 		RouteTable:   []ripRouterEntry{},
 		quit:         make(chan struct{}),
@@ -151,6 +165,14 @@ func (r *RIPRouter) handleUpdate(update *lnwire.RIPUpdate, source [33]byte) erro
 	return nil
 }
 
+func (r *RIPRouter) handleRipRequest () error {
+	return  nil
+}
+
+func (r *RIPRouter) handleRipResponse ()  error {
+	return nil
+}
+
 // processRIPUpdateMsg sends a message to the RIPRouter allowing it to
 // update router table.
 func (r *RIPRouter) ProcessRIPUpdateMsg(msg *lnwire.RIPUpdate,
@@ -161,4 +183,28 @@ func (r *RIPRouter) ProcessRIPUpdateMsg(msg *lnwire.RIPUpdate,
 		return
 	}
 }
+
+// processRIPRequestMsg sends a message to the RIPRouter allowing it to
+// update router table.
+func (r *RIPRouter) ProcessRIPRequestMsg(msg *lnwire.RIPRequest,
+	peerAddress *lnwire.NetAddress) {
+	select {
+	case r.RequestBuffer <- &RIPRequestMsg{msg, peerAddress}:
+	case <-r.quit:
+		return
+	}
+}
+
+// processRIPResponseMsg sends a message to the RIPRouter allowing it to
+// update router table.
+func (r *RIPRouter) ProcessRIPResponseMsg(msg *lnwire.RIPResponse,
+	peerAddress *lnwire.NetAddress) {
+	select {
+	case r.ResponseBuffer <- &RIPResponseMsg{msg, peerAddress}:
+	case <-r.quit:
+		return
+	}
+}
+
+
 
