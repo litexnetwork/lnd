@@ -229,6 +229,19 @@ func writeElement(w io.Writer, element interface{}) error {
 		if _, err := w.Write(e[:]); err != nil {
 			return err
 		}
+	case [][33]byte:
+		var b[2]byte
+		numBytes := uint16(len(e))
+		binary.BigEndian.PutUint16(b[:], numBytes)
+		if _, err := w.Write(b[:]); err != nil {
+			return err
+		}
+
+		for _, Bytes := range e {
+			if _, err := w.Write(Bytes[:]); err != nil {
+				return err
+			}
+		}
 	case []byte:
 		if _, err := w.Write(e[:]); err != nil {
 			return err
@@ -275,6 +288,14 @@ func writeElement(w io.Writer, element interface{}) error {
 	case ChannelID:
 		if _, err := w.Write(e[:]); err != nil {
 			return err
+		}
+	case []ChannelID:
+		var l [2]byte
+		binary.BigEndian.PutUint16(l[:], uint16(len(e)))
+		for _, channelID := range e {
+			if _, err := w.Write(channelID[:]); err != nil {
+				return nil
+			}
 		}
 	case FailCode:
 		if err := writeElement(w, uint16(e)); err != nil {
@@ -564,6 +585,24 @@ func readElement(r io.Reader, element interface{}) error {
 		if _, err := io.ReadFull(r, *e); err != nil {
 			return err
 		}
+
+	case *[][33]byte:
+		var l [2]byte
+		if _, err := io.ReadFull(r, l[:]); err != nil {
+			return err
+		}
+		numBytes := binary.BigEndian.Uint16(l[:])
+
+		var keys [][33]byte
+		if numBytes > 0 {
+			keys = make([][33]byte, numBytes)
+			for i :=0; i < int(numBytes); i++ {
+				if err := readElement(r, &keys[i]); err != nil {
+					return err
+				}
+			}
+		}
+		*e = keys
 	case *[33]byte:
 		if _, err := io.ReadFull(r, e[:]); err != nil {
 			return err
@@ -607,7 +646,24 @@ func readElement(r io.Reader, element interface{}) error {
 		if _, err := io.ReadFull(r, e[:]); err != nil {
 			return err
 		}
+	case *[]ChannelID:
+		var l [2]byte
+		if _, err := io.ReadFull(r, l[:]); err != nil {
+			return err
+		}
+		numChannel := binary.BigEndian.Uint16(l[:])
 
+		var channels []ChannelID
+		if numChannel > 0 {
+			channels = make([]ChannelID, numChannel)
+			for i := 0; i < int(numChannel); i++ {
+				if err := readElement(r, &channels[i]); err != nil {
+					return err
+				}
+			}
+		}
+
+		*e = channels
 	case *ShortChannelID:
 		var blockHeight [4]byte
 		if _, err = io.ReadFull(r, blockHeight[1:]); err != nil {

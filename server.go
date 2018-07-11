@@ -649,7 +649,7 @@ func (s *server) Stop() error {
 	s.cc.chainView.Stop()
 	s.connMgr.Stop()
 	s.cc.feeEstimator.Stop()
-
+	s.ripRouter.Stop()
 	// Disconnect from each active peers to ensure that
 	// peerTerminationWatchers signal completion to each peer.
 	for _, peer := range s.Peers() {

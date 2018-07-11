@@ -461,6 +461,13 @@ func lndMain() error {
 			// the chain arb so it can react to on-chain events.
 			return server.chainArb.WatchNewChannel(channel)
 		},
+		UpdateRipRouter: func(changeType int, peerKey [33]byte) {
+			linkChange := &RIP.LinkChange{
+				ChangeType: changeType,
+				NeighbourID: peerKey,
+			}
+			server.ripRouter.LinkChangeChan <- linkChange
+		},
 		ReportShortChanID: func(chanPoint wire.OutPoint) error {
 			cid := lnwire.NewChanIDFromOutPoint(&chanPoint)
 			return server.htlcSwitch.UpdateShortChanID(cid)

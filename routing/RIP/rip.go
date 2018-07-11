@@ -18,12 +18,17 @@ const (
 type RIPRouter struct {
 	RouteTable   []ripRouterEntry
 	SelfNode     [33]byte
-	UpdateBuffer chan *lnwire.RIPUpdate
+	UpdateBuffer chan *RIPUpdateMsg
 	LinkChangeChan chan *LinkChange
 	Neighbours   map[[33]byte]struct{}
 	SendToPeer   func(target *btcec.PublicKey, msgs ...lnwire.Message) error
 	DB           *channeldb.DB
 	quit         chan struct{}
+}
+
+type RIPUpdateMsg struct {
+	msg *lnwire.RIPUpdate
+	addr *lnwire.NetAddress
 }
 
 type ripRouterEntry struct {
@@ -42,8 +47,8 @@ func NewRIPRouter(db *channeldb.DB, selfNode [33]byte) *RIPRouter {
 	return &RIPRouter{
 		DB:           db,
 		SelfNode:     selfNode,
-		UpdateBuffer: make(chan *lnwire.RIPUpdate, NUM_RIP_BUFFER),
-		LinkChangeChan: make(chan *LinkChange),
+		UpdateBuffer: make(chan *RIPUpdateMsg, NUM_RIP_BUFFER),
+		LinkChangeChan: make(chan *LinkChange, NUM_RIP_BUFFER),
 		RouteTable:   []ripRouterEntry{},
 		quit:         make(chan struct{}),
 	}
@@ -53,15 +58,14 @@ func (r *RIPRouter) Start(wg *sync.WaitGroup) {
 	defer wg.Done()
 	for {
 		select {
-		case update := <-r.UpdateBuffer:
-			// TODO
-			r.handleUpdate(update, [33]byte{})
-
+		case updateMsg := <-r.UpdateBuffer:
+			var sourceKey [33]byte
+			copy(sourceKey[:], updateMsg.addr.IdentityKey.SerializeCompressed())
+			r.handleUpdate(updateMsg.msg, sourceKey)
 		case linkChange := <- r.LinkChangeChan:
 			switch linkChange.ChangeType {
 			// If there is a new neighbour, we handle it.
 			case LINK_ADD:
-				// Add the neighbour
 				r.Neighbours[linkChange.NeighbourID] = struct{}{}
 				addUpdate := &lnwire.RIPUpdate{
 					Distance: 0,
@@ -79,7 +83,6 @@ func (r *RIPRouter) Start(wg *sync.WaitGroup) {
 				copy(rmUpdate.Destination[:], linkChange.NeighbourID[:])
 				r.handleUpdate(rmUpdate, linkChange.NeighbourID)
 			}
-
 		case <-r.quit:
 			//TODO: add log
 			return
@@ -147,3 +150,15 @@ func (r *RIPRouter) handleUpdate(update *lnwire.RIPUpdate, source [33]byte) erro
 	}
 	return nil
 }
+
+// processRIPUpdateMsg sends a message to the RIPRouter allowing it to
+// update router table.
+func (r *RIPRouter) ProcessRIPUpdateMsg(msg *lnwire.RIPUpdate,
+	peerAddress *lnwire.NetAddress) {
+	select {
+	case r.UpdateBuffer <- &RIPUpdateMsg{msg, peerAddress}:
+	case <-r.quit:
+		return
+	}
+}
+

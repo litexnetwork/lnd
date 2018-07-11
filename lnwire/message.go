@@ -50,6 +50,8 @@ const (
 	MsgChannelUpdate                       = 258
 	MsgAnnounceSignatures                  = 259
 	MsgRIPUpdate						   = 512
+	MsgRIPRequest						   = 513
+	MsgRIPResponse						   = 514
 )
 
 // String return the string representation of message type.
@@ -103,6 +105,10 @@ func (t MessageType) String() string {
 		return "UpdateFee"
 	case MsgRIPUpdate:
 		return "RIPUpdate"
+	case MsgRIPRequest:
+		return "RIPResquest"
+	case MsgRIPResponse:
+		return "RIPResponse"
 	default:
 		return "<unknown>"
 	}

@@ -37,6 +37,7 @@ import (
 	"github.com/roasbeef/btcwallet/waddrmgr"
 	"github.com/tv42/zbase32"
 	"golang.org/x/net/context"
+	"github.com/lightningnetwork/lnd/routing/RIP"
 )
 
 var (
@@ -1034,6 +1035,10 @@ func (r *rpcServer) CloseChannel(in *lnrpc.CloseChannelRequest,
 		return err
 	}
 	channel.Stop()
+
+	var neighbourID [33]byte
+	copy(neighbourID[:], channel.State().IdentityPub.SerializeCompressed())
+	r.server.fundingMgr.cfg.UpdateRipRouter(RIP.LINK_ADD, neighbourID)
 
 	// If a force closure was requested, then we'll handle all the details
 	// around the creation and broadcast of the unilateral closure

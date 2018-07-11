@@ -27,6 +27,7 @@ import (
 	"github.com/roasbeef/btcd/chaincfg/chainhash"
 	"github.com/roasbeef/btcd/wire"
 	"github.com/roasbeef/btcutil"
+	"github.com/lightningnetwork/lnd/routing/RIP"
 )
 
 const (
@@ -306,6 +307,10 @@ type fundingConfig struct {
 	// discovered short channel ID of a formerly pending channel to outside
 	// sub-systems.
 	ReportShortChanID func(wire.OutPoint) error
+
+	// UpdateRipRouter update the rip server, when new channel created, or
+	// old channel removed.
+	UpdateRipRouter func(int, [33]byte)
 
 	// ZombieSweeperInterval is the periodic time interval in which the
 	// zombie sweeper is run.
@@ -615,9 +620,11 @@ func (f *fundingManager) Start() error {
 						"router graph: %v", err)
 					return
 				}
+
 				// new channel created, so the rip module need update.
-
-
+				var neighbourID [33]byte
+				copy(neighbourID[:], dbChan.IdentityPub.SerializeCompressed())
+				f.cfg.UpdateRipRouter(RIP.LINK_ADD, neighbourID)
 
 				// TODO(halseth): should create a state machine
 				// that can more easily be resumed from
@@ -1716,6 +1723,11 @@ func (f *fundingManager) handleFundingSigned(fmsg *fundingSignedMsg) {
 		fndgLog.Debugf("Channel with ShortChanID %v added to "+
 			"router graph", shortChanID.ToUint64())
 
+		// new channel created, so the rip module need update.
+		var neighbourID [33]byte
+		copy(neighbourID[:], completeChan.IdentityPub.SerializeCompressed())
+		f.cfg.UpdateRipRouter(RIP.LINK_ADD, neighbourID)
+
 		// Give the caller a final update notifying them that
 		// the channel is now open.
 		// TODO(roasbeef): only notify after recv of funding locked?
@@ -1977,6 +1989,11 @@ func (f *fundingManager) handleFundingConfirmation(completeChan *channeldb.OpenC
 	if err != nil {
 		return fmt.Errorf("failed adding to router graph: %v", err)
 	}
+
+	var neighbourID [33]byte
+	copy(neighbourID[:], completeChan.IdentityPub.SerializeCompressed())
+	f.cfg.UpdateRipRouter(RIP.LINK_ADD, neighbourID)
+
 	err = f.annAfterSixConfs(completeChan, shortChanID)
 	if err != nil {
 		return fmt.Errorf("failed sending channel announcement: %v",

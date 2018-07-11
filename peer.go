@@ -895,6 +895,9 @@ out:
 
 			discStream.AddMsg(msg)
 
+		case *lnwire.RIPUpdate:
+			p.server.ripRouter.ProcessRIPUpdateMsg(msg, p.addr)
+
 		default:
 			peerLog.Errorf("unknown message %v received from peer "+
 				"%v", uint16(msg.MsgType()), p)
