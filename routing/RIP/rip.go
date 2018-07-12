@@ -6,6 +6,7 @@ import (
 	"github.com/lightningnetwork/lnd/lnwire"
 	"github.com/roasbeef/btcd/btcec"
 	"sync"
+	"fmt"
 )
 
 const NUM_RIP_BUFFER = 10
@@ -76,6 +77,7 @@ func (r *RIPRouter) Start(wg *sync.WaitGroup) {
 			var sourceKey [33]byte
 			copy(sourceKey[:], updateMsg.addr.IdentityKey.SerializeCompressed())
 			r.handleUpdate(updateMsg.msg, sourceKey)
+
 		case linkChange := <- r.LinkChangeChan:
 			switch linkChange.ChangeType {
 			// If there is a new neighbour, we handle it.
@@ -97,6 +99,12 @@ func (r *RIPRouter) Start(wg *sync.WaitGroup) {
 				copy(rmUpdate.Destination[:], linkChange.NeighbourID[:])
 				r.handleUpdate(rmUpdate, linkChange.NeighbourID)
 			}
+		case ripRequest := <- r.RequestBuffer:
+			r.handleRipRequest(ripRequest)
+
+		case ripResponse := <- r.ResponseBuffer:
+			r.handleRipResponse(ripResponse)
+
 		case <-r.quit:
 			//TODO: add log
 			return
@@ -165,12 +173,53 @@ func (r *RIPRouter) handleUpdate(update *lnwire.RIPUpdate, source [33]byte) erro
 	return nil
 }
 
-func (r *RIPRouter) handleRipRequest () error {
+func (r *RIPRouter) handleRipRequest (msg *RIPRequestMsg) error {
+	ripReuest := msg.msg
+	dest := ripReuest.DestNodeID
+	var entry *ripRouterEntry
+	var err error
+	// If we get arrived in the destination.
+	if bytes.Equal(dest[:], r.SelfNode[:]) {
+
+
+
+	} else if entry, err = r.findEntry(&dest); err == nil  {
+	// If we arrived in the inter-node
+		dbChans, err := r.DB.FetchAllOpenChannels()
+		if err != nil {
+			return err
+		}
+		for _, dbChan := range dbChans {
+			linkNodeID := dbChan.IdentityPub.SerializeCompressed()
+			if bytes.Equal(linkNodeID[:], entry.NextHop[:]) {
+				ripReuest.PathNodes    = append(ripReuest.PathNodes, r.SelfNode)
+				ripReuest.PathChannels = append(ripReuest.PathChannels,
+					dbChan.FundingOutpoint)
+				peerPubKey, err := btcec.ParsePubKey(entry.NextHop[:], btcec.S256())
+				if err != nil {
+					//TODO(xuehan): return multi err
+					return err
+				}
+				err = r.SendToPeer(peerPubKey, ripReuest)
+				return err
+			}
+		}
+	} else {
+
+		return err
+	}
+
+
+	// TODO(xuehan): check if the channel capacity is more than the
+	// amount required.
+
 	return  nil
 }
 
-func (r *RIPRouter) handleRipResponse ()  error {
-	return nil
+func (r *RIPRouter) handleRipResponse (msg *RIPResponseMsg) (
+	[]lnwire.ChannelID, error) {
+
+	return nil, nil
 }
 
 // processRIPUpdateMsg sends a message to the RIPRouter allowing it to
@@ -206,5 +255,15 @@ func (r *RIPRouter) ProcessRIPResponseMsg(msg *lnwire.RIPResponse,
 	}
 }
 
-
+// findEntry tries to find the entry, which destination is equal to the
+//
+func (r *RIPRouter) findEntry (dest *[33]byte) (*ripRouterEntry, error) {
+	for _, entry := range r.RouteTable {
+		if bytes.Equal(dest[:], entry.Dest[:]) {
+			return &entry, nil
+		}
+	}
+	return nil, fmt.Errorf("RIP router cann't find the destination : %v  in" +
+		"route table", dest)
+}
 

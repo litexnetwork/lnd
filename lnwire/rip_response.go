@@ -1,12 +1,15 @@
 package lnwire
 
-import "io"
+import (
+	"io"
+	"github.com/roasbeef/btcd/wire"
+)
 
 type RIPResponse struct {
 
 	RequestID [33]byte
 
-	PathChannels []ChannelID
+	PathChannels []wire.OutPoint
 
 	PathNodes [][33]byte
 

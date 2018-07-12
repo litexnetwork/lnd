@@ -284,7 +284,14 @@ func writeElement(w io.Writer, element interface{}) error {
 		if _, err := w.Write(idx[:]); err != nil {
 			return err
 		}
-
+	case []wire.OutPoint:
+		var l [2]byte
+		binary.BigEndian.PutUint16(l[:], uint16(len(e)))
+		for _, outPoint := range e {
+			if err := writeElement(w, outPoint); err != nil {
+				return nil
+			}
+		}
 	case ChannelID:
 		if _, err := w.Write(e[:]); err != nil {
 			return err
@@ -331,7 +338,14 @@ func writeElement(w io.Writer, element interface{}) error {
 		if _, err := w.Write(txPosition[:]); err != nil {
 			return err
 		}
-
+	case []ShortChannelID:
+		var l [2]byte
+		binary.BigEndian.PutUint16(l[:], uint16(len(e)))
+		for _, channelID := range e {
+			if err := writeElement(w, channelID); err != nil {
+				return nil
+			}
+		}
 	case *net.TCPAddr:
 		if e == nil {
 			return fmt.Errorf("cannot write nil TCPAddr")
@@ -638,6 +652,24 @@ func readElement(r io.Reader, element interface{}) error {
 			Hash:  *hash,
 			Index: uint32(index),
 		}
+	case *[]wire.OutPoint:
+		var l [2]byte
+		if _, err := io.ReadFull(r, l[:]); err != nil {
+			return err
+		}
+		numOutPoints := binary.BigEndian.Uint16(l[:])
+
+		var outPoints []wire.OutPoint
+		if numOutPoints > 0 {
+			outPoints = make([]wire.OutPoint, numOutPoints)
+			for i := 0; i < int(numOutPoints); i++ {
+				if err := readElement(r, &outPoints[i]); err != nil {
+					return err
+				}
+			}
+		}
+
+		*e = outPoints
 	case *FailCode:
 		if err := readElement(r, (*uint16)(e)); err != nil {
 			return err
@@ -685,7 +717,24 @@ func readElement(r io.Reader, element interface{}) error {
 			TxIndex:     binary.BigEndian.Uint32(txIndex[:]),
 			TxPosition:  binary.BigEndian.Uint16(txPosition[:]),
 		}
+	case *[]ShortChannelID:
+			var l [2]byte
+		if _, err := io.ReadFull(r, l[:]); err != nil {
+			return err
+		}
+		numChannel := binary.BigEndian.Uint16(l[:])
 
+		var channels []ShortChannelID
+		if numChannel > 0 {
+			channels = make([]ShortChannelID, numChannel)
+			for i := 0; i < int(numChannel); i++ {
+				if err := readElement(r, &channels[i]); err != nil {
+					return err
+				}
+			}
+		}
+
+		*e = channels
 	case *[]net.Addr:
 		// First, we'll read the number of total bytes that have been
 		// used to encode the set of addresses.

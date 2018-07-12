@@ -4,6 +4,7 @@ import (
 	"net"
 	"github.com/btcsuite/btcutil"
 	"io"
+	"github.com/roasbeef/btcd/wire"
 )
 
 type RIPRequest struct {
@@ -28,7 +29,7 @@ type RIPRequest struct {
 	PathNodes [][33]byte
 
 	// PathChannls indicates the channels of the path we find.
-	PathChannels []ChannelID
+	PathChannels []wire.OutPoint
 }
 
 // A compile time check to ensure NodeAnnouncement implements the

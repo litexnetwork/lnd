@@ -897,6 +897,10 @@ out:
 
 		case *lnwire.RIPUpdate:
 			p.server.ripRouter.ProcessRIPUpdateMsg(msg, p.addr)
+		case *lnwire.RIPResponse:
+			p.server.ripRouter.ProcessRIPResponseMsg(msg, p.addr)
+		case *lnwire.RIPRequest:
+			p.server.ripRouter.ProcessRIPRequestMsg(msg, p.addr)
 
 		default:
 			peerLog.Errorf("unknown message %v received from peer "+
