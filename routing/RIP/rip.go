@@ -7,6 +7,7 @@ import (
 	"github.com/roasbeef/btcd/btcec"
 	"sync"
 	"fmt"
+	"net"
 )
 
 const NUM_RIP_BUFFER = 10
@@ -19,6 +20,7 @@ const (
 type RIPRouter struct {
 	RouteTable   []ripRouterEntry
 	SelfNode     [33]byte
+	Address 		[]net.Addr
 	UpdateBuffer chan *RIPUpdateMsg
 	RequestBuffer chan *RIPRequestMsg
 	ResponseBuffer chan *RIPResponseMsg
@@ -56,7 +58,7 @@ type LinkChange struct {
 	//TODO(xuehan):add  balance change
 }
 
-func NewRIPRouter(db *channeldb.DB, selfNode [33]byte) *RIPRouter {
+func NewRIPRouter(db *channeldb.DB, selfNode [33]byte, addr []net.Addr) *RIPRouter {
 	return &RIPRouter{
 		DB:           db,
 		SelfNode:     selfNode,
@@ -65,6 +67,7 @@ func NewRIPRouter(db *channeldb.DB, selfNode [33]byte) *RIPRouter {
 		ResponseBuffer: make(chan *RIPResponseMsg, NUM_RIP_BUFFER),
 		LinkChangeChan: make(chan *LinkChange, NUM_RIP_BUFFER),
 		RouteTable:   []ripRouterEntry{},
+		Address:      addr,
 		quit:         make(chan struct{}),
 	}
 }
@@ -180,8 +183,25 @@ func (r *RIPRouter) handleRipRequest (msg *RIPRequestMsg) error {
 	var err error
 	// If we get arrived in the destination.
 	if bytes.Equal(dest[:], r.SelfNode[:]) {
+		ripResponse := &lnwire.RIPResponse{
+			Success: 1,
+		}
+		copy(ripResponse.PathChannels, ripReuest.PathChannels)
+		copy(ripResponse.PathNodes, ripReuest.PathNodes)
+		copy(ripResponse.RequestID[:], ripReuest.RequestID[:])
 
+		sourceAddr := r.Address[0].(*net.Addr)
+		// TODO()建立链接
+		peerPubKey, err := btcec.ParsePubKey(entry.NextHop[:], btcec.S256())
+		if err != nil {
+			//TODO(xuehan): return multi err
+			return err
+		}
+		err = r.SendToPeer(peerPubKey, ripReuest)
+		// TODO() 断开链接
+		return err
 
+		// TODO(xuehan): send this response to the source node.
 
 	} else if entry, err = r.findEntry(&dest); err == nil  {
 	// If we arrived in the inter-node

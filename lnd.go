@@ -514,7 +514,7 @@ func lndMain() error {
 	// We add the rip router
 	var selfNodeKey [33]byte
 	copy(selfNodeKey[:], server.identityPriv.PubKey().SerializeCompressed())
-	server.ripRouter = RIP.NewRIPRouter(server.chanDB, selfNodeKey)
+	server.ripRouter = RIP.NewRIPRouter(server.chanDB, selfNodeKey,server.currentNodeAnn.Addresses)
 	server.ripRouter.SendToPeer = server.SendToPeer
 
 	// Check macaroon authentication if macaroons aren't disabled.
