@@ -516,6 +516,12 @@ func lndMain() error {
 	copy(selfNodeKey[:], server.identityPriv.PubKey().SerializeCompressed())
 	server.ripRouter = RIP.NewRIPRouter(server.chanDB, selfNodeKey,server.currentNodeAnn.Addresses)
 	server.ripRouter.SendToPeer = server.SendToPeer
+	server.ripRouter.ConnectToPeer = server.ConnectToPeer
+	server.ripRouter.DisconnectPeer = server.DisconnectPeer
+	server.ripRouter.FindPeerByPubStr = func(pubStr string) bool {
+		find, _ := server.FindPeerByPubStr(pubStr)
+		return find != nil
+	}
 
 	// Check macaroon authentication if macaroons aren't disabled.
 	if macaroonService != nil {
