@@ -1529,6 +1529,9 @@ type LightningPayment struct {
 	// destination successfully.
 	RouteHints [][]HopHint
 
+	PathNodes [][33]byte
+
+	PathChannels []wire.OutPoint
 	// TODO(roasbeef): add e2e message?
 }
 
@@ -1599,6 +1602,7 @@ func (r *ChannelRouter) SendPayment(payment *LightningPayment) ([32]byte, *Route
 			"session: %v", err)
 	}
 
+	ripTried := false
 	// We'll continue until either our payment succeeds, or we encounter a
 	// critical error during path finding.
 	for {
@@ -1622,14 +1626,50 @@ func (r *ChannelRouter) SendPayment(payment *LightningPayment) ([32]byte, *Route
 			// Fall through if we haven't hit our time limit, or
 			// are expiring.
 		}
+		var route *Route
+		if !ripTried {
+			ripTried = true
+			pathNodes := payment.PathNodes
+			pathChannels := payment.PathChannels
+			if len(pathChannels) != len(pathNodes) {
+				log.Tracef("Attempting to route with rip failed " +
+				"because the number of channels and nodes don't match")
+				continue
+			}
 
-		// We'll kick things off by requesting a new route from mission
-		// control, which will incorporate the current best known state
-		// of the channel graph and our past HTLC routing
-		// successes/failures.
-		route, err := paySession.RequestRoute(
-			payment, uint32(currentHeight), finalCLTVDelta,
-		)
+			// Now, we begin to create the path.
+			channelHops := make([]*ChannelHop,0)
+			length := len(pathChannels)
+			for i, channel := range pathChannels {
+				if i < length {
+					edgeInfo, p1,p2, err := r.cfg.Graph.FetchChannelEdgesByOutpoint(&channel)
+					if err != nil && edgeInfo != nil{
+						log.Tracef("can't fetch the channel info of %v", channel)
+					}
+					channelHop := &ChannelHop{
+						Capacity: edgeInfo.Capacity,
+					}
+					if bytes.Equal(p1.Node.PubKeyBytes[:], pathNodes[i][:]) {
+						channelHop.ChannelEdgePolicy = p1
+					} else {
+						channelHop.ChannelEdgePolicy = p2
+					}
+					channelHops = append(channelHops, channelHop)
+				}
+			}
+
+			sourceVertex := Vertex(paySession.mc.selfNode.PubKeyBytes)
+			route, err = newRoute(payment.Amount, sourceVertex, channelHops,
+				uint32(currentHeight), finalCLTVDelta)
+		} else {
+			// We'll kick things off by requesting a new route from mission
+			// control, which will incorporate the current best known state
+			// of the channel graph and our past HTLC routing
+			// successes/failures.
+			route, err = paySession.RequestRoute(
+				payment, uint32(currentHeight), finalCLTVDelta,
+			)
+		}
 		if err != nil {
 			// If we're unable to successfully make a payment using
 			// any of the routes we've found, then return an error.
@@ -1638,7 +1678,6 @@ func (r *ChannelRouter) SendPayment(payment *LightningPayment) ([32]byte, *Route
 					"route payment to destination: %v",
 					sendError)
 			}
-
 			return preImage, nil, err
 		}
 

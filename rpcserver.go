@@ -2179,6 +2179,16 @@ func (r *rpcServer) SendPayment(paymentStream lnrpc.Lightning_SendPaymentServer)
 				if p.cltvDelta != 0 {
 					payment.FinalCLTVDelta = &p.cltvDelta
 				}
+
+				// We find a path by RIP module, if find pass the result to
+				// payment.
+				var destForRIP [33]byte
+				copy(destForRIP[:],destNode.SerializeCompressed())
+				pathChannels, pathNodes, err := r.server.ripRouter.FindPath(destForRIP)
+				if err == nil {
+					payment.PathNodes = pathNodes
+					payment.PathChannels = pathChannels
+				}
 				preImage, route, err := r.server.chanRouter.SendPayment(payment)
 				if err != nil {
 					// If we receive payment error than,

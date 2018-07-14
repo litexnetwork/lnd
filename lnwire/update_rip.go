@@ -39,8 +39,8 @@ func (c *RIPUpdate) Decode(r io.Reader, pver uint32) error {
 // This is part of the lnwire.Message interface.
 func (c *RIPUpdate) Encode(w io.Writer, pver uint32) error {
 	return writeElements(w,
-		c.Distance[:],
 		c.Destination[:],
+		c.NextHop[:],
 		c.LinkChan,
 		c.Distance,
 	)

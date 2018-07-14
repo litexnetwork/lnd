@@ -199,6 +199,18 @@ func (r *RIPRouter) FindPath (dest [33]byte) ([]wire.OutPoint,
 	r.mu.Lock()
 	r.requestPool[string(requestID)] = make(chan lnwire.RIPResponse)
 	r.mu.Unlock()
+	entry, err := r.findEntry(dest[:])
+	if err != nil {
+		return nil, nil, err
+	}
+	nextNodeKye, err  := btcec.ParsePubKey(entry.NextHop[:], btcec.S256())
+	if err != nil {
+		return nil, nil, err
+	}
+	err = r.SendToPeer(nextNodeKye, ripRequest)
+	if err != nil {
+		return nil, nil, err
+	}
 	select {
 	case response := <- r.requestPool[string(requestID)]:
 		return response.PathChannels,response.PathNodes, nil
@@ -226,6 +238,24 @@ func (r *RIPRouter) handleRipRequest (msg *RIPRequestMsg) error {
 		copy(ripResponse.PathNodes, ripReuest.PathNodes)
 		copy(ripResponse.RequestID[:], ripReuest.RequestID[:])
 
+		ripResponse.PathNodes = append(ripResponse.PathNodes, r.SelfNode)
+		dbChans, err := r.DB.FetchAllOpenChannels()
+		if err != nil {
+			return err
+		}
+		find := false
+		for _, dbChan := range dbChans {
+			linkNodeID := dbChan.IdentityPub.SerializeCompressed()
+			if bytes.Equal(linkNodeID[:], msg.addr.IdentityKey.SerializeCompressed()) {
+				ripResponse.PathChannels = append(ripReuest.PathChannels,
+					dbChan.FundingOutpoint)
+				find = true
+				break
+			}
+		}
+		if find == false {ripResponse.Success = 0}
+
+		// TODO(xuehan): try all possible address.
 		sourceAddr, ok := ripReuest.Addresses[0].(*net.Addr)
 		if !ok {
 			return fmt.Errorf("can not solve the address : %v\n", r.Address[0])
@@ -251,7 +281,7 @@ func (r *RIPRouter) handleRipRequest (msg *RIPRequestMsg) error {
 		}
 		return err
 
-	} else if entry, err = r.findEntry(&dest); err == nil  {
+	} else if entry, err = r.findEntry(dest[:]); err == nil  {
 	// If we arrived in the inter-node
 		dbChans, err := r.DB.FetchAllOpenChannels()
 		if err != nil {
@@ -259,7 +289,7 @@ func (r *RIPRouter) handleRipRequest (msg *RIPRequestMsg) error {
 		}
 		for _, dbChan := range dbChans {
 			linkNodeID := dbChan.IdentityPub.SerializeCompressed()
-			if bytes.Equal(linkNodeID[:], entry.NextHop[:]) {
+			if bytes.Equal(linkNodeID[:], msg.addr.IdentityKey.SerializeCompressed()) {
 				ripReuest.PathNodes    = append(ripReuest.PathNodes, r.SelfNode)
 				ripReuest.PathChannels = append(ripReuest.PathChannels,
 					dbChan.FundingOutpoint)
@@ -272,12 +302,15 @@ func (r *RIPRouter) handleRipRequest (msg *RIPRequestMsg) error {
 				return err
 			}
 		}
+
+		//TODO(xuehan): send a failure response to source .
+
 	} else {
 		ripResponse := &lnwire.RIPResponse{
 			RequestID: ripReuest.RequestID,
 			Success: 0,
 		}
-			sourceAddr, ok := ripReuest.Addresses[0].(*net.Addr)
+		sourceAddr, ok := ripReuest.Addresses[0].(*net.Addr)
 		if !ok {
 			return fmt.Errorf("can not solve the address : %v\n", r.Address[0])
 		}
@@ -289,6 +322,7 @@ func (r *RIPRouter) handleRipRequest (msg *RIPRequestMsg) error {
 			IdentityKey: identityKey,
 			Address: sourceAddr,
 		}
+		// TODO(xuehan): try all address.
 		connectedToSource := r.FindPeerByPubStr(string(ripReuest.SourceNodeID[:]))
 		if !connectedToSource {
 			err = r.ConnectToPeer(sourceNetAddr, false)
@@ -360,9 +394,9 @@ func (r *RIPRouter) ProcessRIPResponseMsg(msg *lnwire.RIPResponse,
 
 // findEntry tries to find the entry, which destination is equal to the
 //
-func (r *RIPRouter) findEntry (dest *[33]byte) (*ripRouterEntry, error) {
+func (r *RIPRouter) findEntry (dest []byte) (*ripRouterEntry, error) {
 	for _, entry := range r.RouteTable {
-		if bytes.Equal(dest[:], entry.Dest[:]) {
+		if bytes.Equal(dest, entry.Dest[:]) {
 			return &entry, nil
 		}
 	}

@@ -113,7 +113,7 @@
         },
         {
             "node_1": "0367cec75158a4129177bfb8b269cb586efe93d751b43800d456485e81c2620ca6",
-	    "node_2": "032b480de5d002f1a8fd1fe1bbf0a0f1b07760f65f052e66d56f15d71097c01add",
+            "node_2": "032b480de5d002f1a8fd1fe1bbf0a0f1b07760f65f052e66d56f15d71097c01add",
             "channel_id": 12345, 
             "channel_point": "89dc56859c6a082d15ba1a7f6cb6be3fea62e1746e2cb8497b1189155c21a233:0", 
             "flags": 0, 
