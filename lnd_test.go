@@ -2976,7 +2976,7 @@ func testMultiHopPayments(net *lntest.NetworkHarness, t *harnessTest) {
 
 	// Create 5 invoices for Bob, which expect a payment from Carol for 1k
 	// satoshis with a different preimage each time.
-	const numPayments = 5
+	const numPayments = 1
 	const paymentAmt = 1000
 	payReqs := make([]string, numPayments)
 	for i := 0; i < numPayments; i++ {
@@ -10446,11 +10446,11 @@ var testsCases = []*testCase{
 		name: "channel balance",
 		test: testChannelBalance,
 	},
-	{
+*/	{
 		name: "single hop invoice",
 		test: testSingleHopInvoice,
 	},
-	{
+/*	{
 		name: "sphinx replay persistence",
 		test: testSphinxReplayPersistence,
 	},
@@ -10511,7 +10511,7 @@ var testsCases = []*testCase{
 		name: "single hop invoice for extract fund",
 		test: testSingleHopInvoiceForExtractFund,
 	},
-*/	{
+	{
 		name: "multiple hop payment for extract fund",
 		test: testMultiHopPaymentsForExtractFund,
 	},
@@ -10612,6 +10612,7 @@ var testsCases = []*testCase{
 		name: "query routes",
 		test: testQueryRoutes,
 	},
+*/
 }
 
 // TestLightningNetworkDaemon performs a series of integration tests amongst a

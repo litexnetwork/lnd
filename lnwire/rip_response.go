@@ -46,7 +46,7 @@ func (req *RIPResponse) Encode(w io.Writer, pver uint32) error {
 //
 // This is part of the lnwire.Message interface.
 func (a *RIPResponse) MsgType() MessageType {
-	return MsgRIPRequest
+	return MsgRIPResponse
 }
 
 // MaxPayloadLength returns the maximum allowed payload size for this message

@@ -287,6 +287,9 @@ func writeElement(w io.Writer, element interface{}) error {
 	case []wire.OutPoint:
 		var l [2]byte
 		binary.BigEndian.PutUint16(l[:], uint16(len(e)))
+		if _,err := w.Write(l[:]); err != nil {
+			return  err
+		}
 		for _, outPoint := range e {
 			if err := writeElement(w, outPoint); err != nil {
 				return nil
@@ -658,7 +661,6 @@ func readElement(r io.Reader, element interface{}) error {
 			return err
 		}
 		numOutPoints := binary.BigEndian.Uint16(l[:])
-
 		var outPoints []wire.OutPoint
 		if numOutPoints > 0 {
 			outPoints = make([]wire.OutPoint, numOutPoints)

@@ -1631,9 +1631,12 @@ func (r *ChannelRouter) SendPayment(payment *LightningPayment) ([32]byte, *Route
 			ripTried = true
 			pathNodes := payment.PathNodes
 			pathChannels := payment.PathChannels
-			if len(pathChannels) != len(pathNodes) {
+			if len(pathChannels) != len(pathNodes) ||
+				len(pathChannels) == 0 ||
+				len(pathNodes) == 0 {
 				log.Tracef("Attempting to route with rip failed " +
-				"because the number of channels and nodes don't match")
+				"because the number of channels and nodes don't match, or the " +
+					"number of path is zero")
 				continue
 			}
 

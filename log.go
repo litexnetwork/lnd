@@ -21,6 +21,7 @@ import (
 	"github.com/lightningnetwork/lnd/lnwallet"
 	"github.com/lightningnetwork/lnd/routing"
 	"github.com/roasbeef/btcd/connmgr"
+	"github.com/lightningnetwork/lnd/routing/RIP"
 )
 
 // logWriter implements an io.Writer that outputs to both standard output and
@@ -90,6 +91,7 @@ func init() {
 	autopilot.UseLogger(atplLog)
 	contractcourt.UseLogger(cnctLog)
 	sphinx.UseLogger(sphxLog)
+	RIP.UseLogger(ripnLog)
 }
 
 // subsystemLoggers maps each subsystem identifier to its associated logger.
@@ -112,6 +114,7 @@ var subsystemLoggers = map[string]btclog.Logger{
 	"ATPL": atplLog,
 	"CNCT": cnctLog,
 	"SPHX": sphxLog,
+	"RIPN": ripnLog,
 }
 
 // initLogRotator initializes the logging rotator to write logs to logFile and

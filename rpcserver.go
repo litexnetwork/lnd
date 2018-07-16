@@ -2335,6 +2335,16 @@ func (r *rpcServer) SendPaymentSync(ctx context.Context,
 	if cltvDelta != 0 {
 		payment.FinalCLTVDelta = &cltvDelta
 	}
+	// We find a path by RIP module, if find pass the result to
+				// payment.
+	var destForRIP [33]byte
+	copy(destForRIP[:],destPub.SerializeCompressed())
+	pathChannels, pathNodes, err := r.server.ripRouter.FindPath(destForRIP)
+	if err == nil {
+		payment.PathNodes = pathNodes
+		payment.PathChannels = pathChannels
+	}
+	rpcsLog.Infof("pathChannels: %v", pathChannels)
 	preImage, route, err := r.server.chanRouter.SendPayment(payment)
 	if err != nil {
 		return &lnrpc.SendResponse{

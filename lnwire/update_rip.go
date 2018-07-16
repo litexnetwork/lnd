@@ -1,6 +1,8 @@
 package lnwire
 
-import "io"
+import (
+	"io"
+)
 
 // RIPUpdate is the message that peers will send to its neighbours
 // to update the route table when lnd configed the RIP router
@@ -15,7 +17,7 @@ type RIPUpdate struct {
 	LinkChan	ChannelID
 
 	// Distance means how many hops the path is
-	Distance	int8
+	Distance	uint8
 }
 
 var _ Message = (*RIPUpdate)(nil)
@@ -26,8 +28,8 @@ var _ Message = (*RIPUpdate)(nil)
 // This is part of the lnwire.Message interface.
 func (c *RIPUpdate) Decode(r io.Reader, pver uint32) error {
 	return readElements(r,
-		c.Destination[:],
-		c.NextHop[:],
+		&c.Destination,
+		&c.NextHop,
 		&c.LinkChan,
 		&c.Distance,
 	)
@@ -39,8 +41,8 @@ func (c *RIPUpdate) Decode(r io.Reader, pver uint32) error {
 // This is part of the lnwire.Message interface.
 func (c *RIPUpdate) Encode(w io.Writer, pver uint32) error {
 	return writeElements(w,
-		c.Destination[:],
-		c.NextHop[:],
+		c.Destination,
+		c.NextHop,
 		c.LinkChan,
 		c.Distance,
 	)
@@ -60,7 +62,7 @@ func (c *RIPUpdate) MsgType() MessageType {
 // This is part of the lnwire.Message interface.
 func (c *RIPUpdate) MaxPayloadLength(uint32) uint32 {
 	// 33 + 33 + 32 + 1
-	return 72
+	return  99
 }
 
 

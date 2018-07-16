@@ -112,6 +112,7 @@ func TestLightningWireProtocol(t *testing.T) {
 	mainScenario := func(msg Message) bool {
 		// Give a new message, we'll serialize the message into a new
 		// bytes buffer.
+
 		var b bytes.Buffer
 		if _, err := WriteMessage(&b, msg, 0); err != nil {
 			t.Fatalf("unable to write msg: %v", err)
@@ -265,7 +266,7 @@ func TestLightningWireProtocol(t *testing.T) {
 
 			v[0] = reflect.ValueOf(req)
 		},
-		MsgFundingCreated: func(v []reflect.Value, r *rand.Rand) {
+		/*MsgFundingCreated: func(v []reflect.Value, r *rand.Rand) {
 
 			req := FundingCreated{
 				ChangeOutputScript: make([]byte, 34),
@@ -297,6 +298,7 @@ func TestLightningWireProtocol(t *testing.T) {
 
 			v[0] = reflect.ValueOf(req)
 		},
+		*/
 		MsgFundingSigned: func(v []reflect.Value, r *rand.Rand) {
 			var c [32]byte
 			_, err := r.Read(c[:])
@@ -564,6 +566,57 @@ func TestLightningWireProtocol(t *testing.T) {
 
 			v[0] = reflect.ValueOf(req)
 		},
+		MsgRIPUpdate: func(v []reflect.Value, r *rand.Rand) {
+			var c [32]byte
+			var err error
+			if _, err := r.Read(c[:]); err != nil {
+				t.Fatalf("unable to generate chan id: %v", err)
+				return
+			}
+			req := RIPUpdate{
+				Distance: uint8(r.Int31()),
+			}
+			req.LinkChan = c
+			req.NextHop, err = randRawKey()
+			if err != nil {
+				t.Fatalf("unable to gen raw key")
+			}
+			req.Destination, err = randRawKey()
+			if err != nil {
+				t.Fatalf("unable to gen raw key")
+			}
+
+			v[0] = reflect.ValueOf(req)
+		},
+		MsgRIPRequest: func(v []reflect.Value, r *rand.Rand) {
+			var err error
+			req := RIPRequest{
+				RequestAmount:  btcutil.Amount(r.Int63()),
+				Addresses: testAddrs,
+				PathChannels: []wire.OutPoint{*outpoint1},
+			}
+			req.SourceNodeID, err = randRawKey()
+			if err != nil {
+				t.Fatalf("unable to gen raw key")
+			}
+			node1, _:= randRawKey()
+			req.PathNodes = [][33]byte{node1}[:]
+			req.DestNodeID = node1
+			req.RequestID = node1
+
+			v[0] = reflect.ValueOf(req)
+		},
+		MsgRIPResponse: func(v []reflect.Value, r *rand.Rand) {
+			node1, _:= randRawKey()
+			req := RIPResponse{
+				RequestID: node1,
+				Success: 1,
+				PathChannels: []wire.OutPoint{*outpoint1},
+				PathNodes: [][33]byte{node1}[:],
+			}
+
+			v[0] = reflect.ValueOf(req)
+		},
 	}
 
 	// With the above types defined, we'll now generate a slice of
@@ -611,12 +664,13 @@ func TestLightningWireProtocol(t *testing.T) {
 				return mainScenario(&m)
 			},
 		},
-		{
+		/*{
 			msgType: MsgFundingCreated,
 			scenario: func(m FundingCreated) bool {
 				return mainScenario(&m)
 			},
 		},
+		*/
 		{
 			msgType: MsgFundingSigned,
 			scenario: func(m FundingSigned) bool {
@@ -711,6 +765,24 @@ func TestLightningWireProtocol(t *testing.T) {
 		{
 			msgType: MsgAnnounceSignatures,
 			scenario: func(m AnnounceSignatures) bool {
+				return mainScenario(&m)
+			},
+		},
+		{
+			msgType: MsgRIPUpdate,
+			scenario: func(m RIPUpdate) bool {
+				return mainScenario(&m)
+			},
+		},
+		{
+			msgType: MsgRIPRequest,
+			scenario: func(m RIPRequest) bool {
+				return mainScenario(&m)
+			},
+		},
+		{
+			msgType: MsgRIPResponse,
+			scenario: func(m RIPResponse) bool {
 				return mainScenario(&m)
 			},
 		},

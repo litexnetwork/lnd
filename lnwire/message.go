@@ -200,6 +200,12 @@ func makeEmptyMessage(msgType MessageType) (Message, error) {
 		msg = &AnnounceSignatures{}
 	case MsgPong:
 		msg = &Pong{}
+	case MsgRIPUpdate:
+		msg = &RIPUpdate{}
+	case MsgRIPRequest:
+		msg = &RIPRequest{}
+	case MsgRIPResponse:
+		msg = &RIPResponse{}
 	default:
 		return nil, &UnknownMessage{msgType}
 	}
