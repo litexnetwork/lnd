@@ -2336,7 +2336,7 @@ func (r *rpcServer) SendPaymentSync(ctx context.Context,
 		payment.FinalCLTVDelta = &cltvDelta
 	}
 	// We find a path by RIP module, if find pass the result to
-				// payment.
+	// payment.
 	var destForRIP [33]byte
 	copy(destForRIP[:],destPub.SerializeCompressed())
 	pathChannels, pathNodes, err := r.server.ripRouter.FindPath(destForRIP)

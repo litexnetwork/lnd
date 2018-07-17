@@ -98,36 +98,41 @@ func (r *RIPRouter) Start(wg *sync.WaitGroup) {
 			// If there is a new neighbour, we handle it.
 			case LINK_ADD:
 				r.Neighbours[linkChange.NeighbourID] = struct{}{}
-				/*
-				addUpdate := &lnwire.RIPUpdate{
-					Distance: 0,
-				}
-				copy(addUpdate.Destination[:], linkChange.NeighbourID[:])
-				r.handleUpdate(addUpdate, linkChange.NeighbourID)
-				*/
 				ripLog.Infof("add link")
 				entry := &ripRouterEntry{
 					Dest: linkChange.NeighbourID,
 					NextHop: linkChange.NeighbourID,
 					Distance: 1,
 				}
-				r.RouteTable = append(r.RouteTable, entry)
+				if exEntry, err := r.findEntry(linkChange.NeighbourID[:]); err == nil {
+					exEntry.NextHop = linkChange.NeighbourID
+					exEntry.Distance = 1
+				} else {
+					r.RouteTable = append(r.RouteTable, entry)
+				}
 				r.sendToNeighbours(linkChange.NeighbourID, linkChange.NeighbourID, 1)
 				ripLog.Debugf("router table : %v",
 					newLogClosure(func() string {
 						return spew.Sdump(r.RouteTable)
 				}),
 				)
+				neighbourPubKey, err := btcec.ParsePubKey(linkChange.NeighbourID[:], btcec.S256())
+				if err != nil {
+					ripLog.Errorf("can not parse the pub key: %v", linkChange.NeighbourID)
+				}
+				// We send the route table to the new neighbour.
+				for _, routeEntry := range r.RouteTable  {
+					update := &lnwire.RIPUpdate{
+						Distance: routeEntry.Distance,
+						Destination: routeEntry.Dest,
+					}
+					r.SendToPeer(neighbourPubKey, update)
+				}
 
-				// If the remote node was down or the channel was closed,
+			// If the remote node was down or the channel was closed,
 			// We delete it and notify our neighbour.
 			case LINK_REMOVE:
 				delete(r.Neighbours, linkChange.NeighbourID)
-				/*rmUpdate := &lnwire.RIPUpdate{
-					Distance: 16,
-				}
-				copy(rmUpdate.Destination[:], linkChange.NeighbourID[:])
-				*/
 				ripLog.Infof("rm Link")
 				entry, err := r.findEntry(linkChange.NeighbourID[:])
 
@@ -138,15 +143,14 @@ func (r *RIPRouter) Start(wg *sync.WaitGroup) {
 				entry.NextHop = linkChange.NeighbourID
 				entry.Dest = linkChange.NeighbourID
 				r.sendToNeighbours(linkChange.NeighbourID, linkChange.NeighbourID, 16)
-					ripLog.Debugf("router table : %v",
-		newLogClosure(func() string {
-			return spew.Sdump(r.RouteTable)
-		}),
-	)
-
-				//r.handleUpdate(rmUpdate, linkChange.NeighbourID)
+				ripLog.Debugf("router table : %v",
+					newLogClosure(func() string {
+						return spew.Sdump(r.RouteTable)
+					}),
+				)
 			}
 		case ripRequest := <- r.RequestBuffer:
+			ripLog.Debugf("revieved the ripRequest:%v", ripRequest)
 			r.handleRipRequest(ripRequest)
 
 		case ripResponse := <- r.ResponseBuffer:
@@ -167,7 +171,7 @@ func (r *RIPRouter) Stop() {
 }
 
 func (r *RIPRouter) handleUpdate(update *lnwire.RIPUpdate, source [33]byte) error {
-	nextHop := r.SelfNode
+	nextHop := source
 	distance := update.Distance + 1
 	dest := update.Destination
 
@@ -185,32 +189,28 @@ func (r *RIPRouter) handleUpdate(update *lnwire.RIPUpdate, source [33]byte) erro
 
 			if bytes.Equal(entry.NextHop[:], nextHop[:]) {
 				entry.Distance = distance
-				ripLog.Infof("route table entry new is %v: \n", entry)
 				ifUpdate = true
 			} else {
 				if entry.Distance > distance {
 					copy(entry.NextHop[:], dest[:])
 					entry.Distance = distance
-			//		ripLog.Infof("route table entry new is %v: \n", entry)
 					ifUpdate = true
 				}
 			}
-
-			//ripLog.Infof("route table entry new is %v: \n", entry)
+			ripLog.Infof("route table entry new is %v: \n", entry)
 		}
 	}
 	// if this entry is not in the route table, we add this update into table
-	if !ifExist {
+	if !ifExist && !bytes.Equal(dest[:], r.SelfNode[:]){
 		newEntry := ripRouterEntry{
 			Distance: distance,
 			Dest:     dest,
 		}
-		copy(newEntry.NextHop[:], dest[:])
+		copy(newEntry.NextHop[:], nextHop[:])
 		r.RouteTable = append(r.RouteTable, &newEntry)
 		ifUpdate = true
 		ripLog.Infof("route table add entry: %v \n", newEntry)
 	}
-	ripLog.Infof("%v", ifUpdate)
 	// BroadCast this update to his neighbours
 	if ifUpdate {
 		ripLog.Infof("更新过了,发送更新")
@@ -218,25 +218,6 @@ func (r *RIPRouter) handleUpdate(update *lnwire.RIPUpdate, source [33]byte) erro
 		if err != nil {
 			return err
 		}
-
-		/*
-		for peer, _ := range r.Neighbours {
-			if !bytes.Equal(peer[:], source[:]) {
-				peerPubKey, err := btcec.ParsePubKey(peer[:], btcec.S256())
-				if err != nil {
-					//TODO(xuehan): return multi err
-					return err
-				}
-				update := lnwire.RIPUpdate{
-					Distance: distance,
-				}
-				copy(update.Destination[:], dest[:])
-				r.SendToPeer(peerPubKey, &update)
-
-				ripLog.Infof("send the rip update:%v to %v\n", update, peerPubKey)
-			}
-		}
-		*/
 	}
 
 	ripLog.Debugf("router table : %v",
@@ -244,9 +225,6 @@ func (r *RIPRouter) handleUpdate(update *lnwire.RIPUpdate, source [33]byte) erro
 			return spew.Sdump(r.RouteTable)
 		}),
 	)
-
-
-
 	return nil
 }
 
@@ -269,7 +247,6 @@ func (r *RIPRouter) sendToNeighbours (source [33]byte,
 					return spew.Sdump(update)
 				}),
 			)
-
 			r.SendToPeer(peerPubKey, &update)
 
 			ripLog.Infof("send the rip update:%v to %v\n", update, peerPubKey)
@@ -311,8 +288,7 @@ func (r *RIPRouter) FindPath (dest [33]byte) ([]wire.OutPoint,
 	}
 	select {
 	case response := <- r.requestPool[string(requestID)]:
-
-		ripLog.Infof("recieved the ripResponse: %v: \n", response)
+		ripLog.Infof("recieved the ripResponse: %v ", response)
 		return response.PathChannels,response.PathNodes, nil
 	case <-time.After(5 * time.Second):
 		// if timeout, remove the channel from requestPool.
@@ -370,12 +346,11 @@ func (r *RIPRouter) handleRipRequest (msg *RIPRequestMsg) error {
 			IdentityKey: identityKey,
 			Address: sourceAddr,
 		}
+		r.mu.Lock()
 		connectedToSource := r.FindPeerByPubStr(string(ripReuest.SourceNodeID[:]))
 		if !connectedToSource {
 			err = r.ConnectToPeer(sourceNetAddr, false)
-
 			ripLog.Infof("链接到sourceNode： %v", sourceNetAddr)
-
 			if err != nil {
 				return nil
 			}
@@ -386,6 +361,7 @@ func (r *RIPRouter) handleRipRequest (msg *RIPRequestMsg) error {
 			ripLog.Infof( "断开链接")
 			err = r.DisconnectPeer(identityKey)
 		}
+		r.mu.Unlock()
 		return err
 
 	} else if entry, err = r.findEntry(dest[:]); err == nil  {
@@ -430,6 +406,7 @@ func (r *RIPRouter) handleRipRequest (msg *RIPRequestMsg) error {
 			Address: sourceAddr,
 		}
 		// TODO(xuehan): try all address.
+		r.mu.Lock()
 		connectedToSource := r.FindPeerByPubStr(string(ripReuest.SourceNodeID[:]))
 		if !connectedToSource {
 			err = r.ConnectToPeer(sourceNetAddr, false)
@@ -440,8 +417,9 @@ func (r *RIPRouter) handleRipRequest (msg *RIPRequestMsg) error {
 		err = r.SendToPeer(identityKey, ripResponse)
 		ripLog.Infof("sent the error response to :%v", identityKey)
 		if !connectedToSource {
-			err = r.DisconnectPeer(identityKey)
+			//err = r.DisconnectPeer(identityKey)
 		}
+		r.mu.Unlock()
 		return err
 	}
 
