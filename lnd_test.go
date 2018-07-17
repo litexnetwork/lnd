@@ -10410,7 +10410,7 @@ type testCase struct {
 }
 
 var testsCases = []*testCase{
-	{
+/*	{
 		name: "onchain fund recovery",
 		test: testOnchainFundRecovery,
 	},
@@ -10558,27 +10558,28 @@ var testsCases = []*testCase{
 		name: "test multi-hop local force close on-chain htlc timeout",
 		test: testMultiHopLocalForceCloseOnChainHtlcTimeout,
 	},
+
 	{
 		// bob: outgoing their commit watch and see timeout
 		// carol: incoming our commit watch and see timeout
 		name: "test multi-hop remote force close on-chain htlc timeout",
 		test: testMultHopRemoteForceCloseOnChainHtlcTimeout,
 	},
-	{
-		// bob: outgoing our commit watch and see, they sweep on chain
+*/	{
+		// [failed] bob: outgoing our commit watch and see, they sweep on chain
 		// bob: incoming our commit watch and learn preimage
 		// carol: incoming their commit know preimage
 		name: "test multi-hop htlc local chain claim",
 		test: testMultiHopHtlcLocalChainClaim,
 	},
 	{
-		// bob: outgoing their commit watch and see, they sweep on chain
+		// [failed] bob: outgoing their commit watch and see, they sweep on chain
 		// bob: incoming their commit watch and learn preimage
 		// carol: incoming our commit know preimage
 		name: "test multi-hop htlc remote chain claim",
 		test: testMultiHopHtlcRemoteChainClaim,
 	},
-	{
+/*	{
 		name: "switch circuit persistence",
 		test: testSwitchCircuitPersistence,
 	},
@@ -10612,6 +10613,7 @@ var testsCases = []*testCase{
 		name: "query routes",
 		test: testQueryRoutes,
 	},
+*/
 }
 
 // TestLightningNetworkDaemon performs a series of integration tests amongst a

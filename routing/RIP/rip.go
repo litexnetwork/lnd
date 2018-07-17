@@ -138,6 +138,7 @@ func (r *RIPRouter) Start(wg *sync.WaitGroup) {
 
 				if err != nil {
 					ripLog.Infof("%v", err)
+					continue
 				}
 				entry.Distance = 16
 				entry.NextHop = linkChange.NeighbourID
