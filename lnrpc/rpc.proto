@@ -1543,6 +1543,14 @@ message Invoice {
 
     /// Whether this invoice should include routing hints for private channels.
     bool private = 15 [json_name = "private"];
+
+    enum InvoiceType {
+        NORMAL_INVOICE = 0;
+        CROSS_CHAIN_INVOICE = 1;
+    }
+
+    /// The address type
+    InvoiceType type = 16;
 }
 message AddInvoiceResponse {
     bytes r_hash = 1 [json_name = "r_hash"];

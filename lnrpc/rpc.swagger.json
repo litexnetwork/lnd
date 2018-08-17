@@ -190,38 +190,6 @@
             "required": true,
             "type": "integer",
             "format": "int64"
-          },
-          {
-            "name": "channel_point.funding_txid_bytes",
-            "description": "/ Txid of the funding transaction.",
-            "in": "query",
-            "required": false,
-            "type": "string",
-            "format": "byte"
-          },
-          {
-            "name": "force",
-            "description": "/ If true, then the channel will be closed forcibly. This means the current commitment transaction will be signed and broadcast.",
-            "in": "query",
-            "required": false,
-            "type": "boolean",
-            "format": "boolean"
-          },
-          {
-            "name": "target_conf",
-            "description": "/ The target number of blocks that the closure transaction should be confirmed by.",
-            "in": "query",
-            "required": false,
-            "type": "integer",
-            "format": "int32"
-          },
-          {
-            "name": "sat_per_byte",
-            "description": "/ A manual fee rate set in sat/byte that should be used when crafting the closure transaction.",
-            "in": "query",
-            "required": false,
-            "type": "string",
-            "format": "int64"
           }
         ],
         "tags": [
@@ -821,13 +789,13 @@
     }
   },
   "definitions": {
-    "NewAddressRequestAddressType": {
+    "InvoiceInvoiceType": {
       "type": "string",
       "enum": [
-        "WITNESS_PUBKEY_HASH",
-        "NESTED_PUBKEY_HASH"
+        "NORMAL_INVOICE",
+        "CROSS_CHAIN_INVOICE"
       ],
-      "default": "WITNESS_PUBKEY_HASH"
+      "default": "NORMAL_INVOICE"
     },
     "PendingChannelsResponseClosedChannel": {
       "type": "object",
@@ -1696,6 +1664,10 @@
           "type": "boolean",
           "format": "boolean",
           "description": "/ Whether this invoice should include routing hints for private channels."
+        },
+        "type": {
+          "$ref": "#/definitions/InvoiceInvoiceType",
+          "title": "/ The address type"
         }
       }
     },

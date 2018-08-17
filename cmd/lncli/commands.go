@@ -2135,6 +2135,7 @@ func addInvoice(ctx *cli.Context) error {
 		receipt  []byte
 		amt      int64
 		err      error
+		invType  lnrpc.Invoice_InvoiceType
 	)
 
 	client, cleanUp := getClient(ctx)
@@ -2151,6 +2152,18 @@ func addInvoice(ctx *cli.Context) error {
 		if err != nil {
 			return fmt.Errorf("unable to decode amt argument: %v", err)
 		}
+	}
+
+	if ctx.IsSet("type") {
+		invTypeString := ctx.String("type")
+		switch invTypeString {
+		case "normal":
+			invType = lnrpc.Invoice_NORMAL_INVOICE
+		case "cross-chain":
+			invType = lnrpc.Invoice_CROSS_CHAIN_INVOICE
+		}
+	} else {
+		invType = lnrpc.Invoice_NORMAL_INVOICE
 	}
 
 	switch {
