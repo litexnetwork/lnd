@@ -52,6 +52,12 @@ const (
 	MaxPaymentRequestSize = 4096
 )
 
+
+const (
+	NORMAL_INVOICE  int32 =  iota
+	CROSS_CHAIN_INVOICE
+)
+
 // ContractTerm is a companion struct to the Invoice struct. This struct houses
 // the necessary conditions required before the invoice can be considered fully
 // settled by the payee.
@@ -110,6 +116,10 @@ type Invoice struct {
 	// TODO(roasbeef): later allow for multiple terms to fulfill the final
 	// invoice: payment fragmentation, etc.
 	Terms ContractTerm
+
+	// Type indicates this invoice is a normal invoice
+	// or a cross-chain invoice
+	Type	int32
 }
 
 func validateInvoice(i *Invoice) error {
@@ -360,7 +370,9 @@ func serializeInvoice(w io.Writer, i *Invoice) error {
 	if err := binary.Write(w, byteOrder, i.Terms.Settled); err != nil {
 		return err
 	}
-
+	if err := binary.Write(w, byteOrder, i.Type); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -423,6 +435,9 @@ func deserializeInvoice(r io.Reader) (*Invoice, error) {
 		return nil, err
 	}
 
+	if err := binary.Read(r, byteOrder, &invoice.Type); err != nil {
+		return nil, err
+	}
 	return invoice, nil
 }
 

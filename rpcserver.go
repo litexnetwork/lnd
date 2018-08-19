@@ -2621,6 +2621,7 @@ func (r *rpcServer) AddInvoice(ctx context.Context,
 		Terms: channeldb.ContractTerm{
 			Value: amtMSat,
 		},
+		Type:           int32(invoice.Type),
 	}
 	copy(i.Terms.PaymentPreimage[:], paymentPreimage[:])
 
@@ -2693,6 +2694,7 @@ func createRPCInvoice(invoice *channeldb.Invoice) (*lnrpc.Invoice, error) {
 		CltvExpiry:      cltvExpiry,
 		FallbackAddr:    fallbackAddr,
 		RouteHints:      routeHints,
+		Type:            lnrpc.Invoice_InvoiceType(invoice.Type),
 	}, nil
 }
 

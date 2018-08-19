@@ -2196,6 +2196,7 @@ func addInvoice(ctx *cli.Context) error {
 		FallbackAddr:    ctx.String("fallback_addr"),
 		Expiry:          ctx.Int64("expiry"),
 		Private:         ctx.Bool("private"),
+		Type:			 invType,
 	}
 
 	resp, err := client.AddInvoice(context.Background(), invoice)

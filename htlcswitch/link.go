@@ -18,6 +18,8 @@ import (
 	"github.com/lightningnetwork/lnd/lnwallet"
 	"github.com/lightningnetwork/lnd/lnwire"
 	"github.com/roasbeef/btcd/chaincfg/chainhash"
+	"net/http"
+	"io/ioutil"
 )
 
 const (
@@ -2187,6 +2189,23 @@ func (l *channelLink) processRemoteAdds(fwdPkg *channeldb.FwdPkg,
 			}
 
 			l.infof("settling %x as exit hop", pd.RHash)
+
+			// If this invoice type is cross-chain, so we need to
+			// notify the Raiden deamon that this invoiced was settled.
+			if invoice.Type == channeldb.CROSS_CHAIN_INVOICE {
+				raidenUrl := "http://127.0.0.1:5001/crosstransactiontry_hash/" +
+					string(pd.RHash[:])
+				resp, err := http.Get(raidenUrl)
+				if err != nil {
+					l.fail("unable to send notification to Raiden : %v", err)
+				}
+				body, err := ioutil.ReadAll(resp.Body)
+				if err != nil {
+					l.fail("cann't handle the Raiden response : %v", err)
+				}
+				log.Infof("recieved response from raiden: %v",  string(body))
+				resp.Body.Close()
+			}
 
 			// HTLC was successfully settled locally send
 			// notification about it remote peer.
