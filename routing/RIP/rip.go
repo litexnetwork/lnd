@@ -338,6 +338,11 @@ func (r *RIPRouter) handleRipRequest (msg *RIPRequestMsg) error {
 		if find == false {ripResponse.Success = 0}
 
 		// TODO(xuehan): try all possible address.
+		// some times this value may be null, find the reason.
+		if len(ripReuest.Addresses) == 0 {
+			return fmt.Errorf("source address of ripRequest is null, cann't send" +
+				"response to the source node")
+		}
 		sourceAddr := ripReuest.Addresses[0]
 		identityKey, err := btcec.ParsePubKey(ripReuest.SourceNodeID[:],btcec.S256())
 		if err != nil {
@@ -396,6 +401,11 @@ func (r *RIPRouter) handleRipRequest (msg *RIPRequestMsg) error {
 		ripResponse := &lnwire.RIPResponse{
 			RequestID: ripReuest.RequestID,
 			Success: 0,
+		}
+		// TODO: This value sometimes will be null, find the reason.
+		if len(ripReuest.Addresses) == 0 {
+			return fmt.Errorf("the ripRequest doesn't hold the source node address," +
+				"we cann't send the response to source node")
 		}
 		sourceAddr:= ripReuest.Addresses[0]
 		identityKey, err := btcec.ParsePubKey(ripReuest.SourceNodeID[:],btcec.S256())
