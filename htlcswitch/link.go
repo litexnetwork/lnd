@@ -2194,7 +2194,7 @@ func (l *channelLink) processRemoteAdds(fwdPkg *channeldb.FwdPkg,
 			// notify the Raiden deamon that this invoiced was settled.
 			if invoice.Type == channeldb.CROSS_CHAIN_INVOICE {
 				raidenUrl := "http://127.0.0.1:5001/crosstransactiontry_hash/" +
-					string(pd.RHash[:])
+				string(pd.RHash[:])
 				resp, err := http.Get(raidenUrl)
 				if err != nil {
 					l.fail("unable to send notification to Raiden : %v", err)

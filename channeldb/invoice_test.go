@@ -25,6 +25,7 @@ func randInvoice(value lnwire.MilliSatoshi) (*Invoice, error) {
 			PaymentPreimage: pre,
 			Value:           value,
 		},
+		Type: NORMAL_INVOICE,
 	}
 	i.Memo = []byte("memo")
 	i.Receipt = []byte("receipt")
@@ -60,6 +61,7 @@ func TestInvoiceWorkflow(t *testing.T) {
 		// Use single second precision to avoid false positive test
 		// failures due to the monotonic time component.
 		CreationDate: time.Unix(time.Now().Unix(), 0),
+		Type:NORMAL_INVOICE,
 	}
 	fakeInvoice.Memo = []byte("memo")
 	fakeInvoice.Receipt = []byte("receipt")

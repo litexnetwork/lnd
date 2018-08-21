@@ -715,7 +715,8 @@ func genCertPair(certFile, keyFile string) error {
 	}
 
 	// Collect the host's IP addresses, including loopback, in a slice.
-	ipAddresses := []net.IP{net.ParseIP("127.0.0.1"), net.ParseIP("::1")}
+	ipAddresses := []net.IP{net.ParseIP("127.0.0.1"), net.ParseIP("::1"),
+	net.ParseIP("0.0.0.0")}
 
 	// addIP appends an IP address only if it isn't already in the slice.
 	addIP := func(ipAddr net.IP) {

@@ -2560,6 +2560,7 @@ func testSingleHopInvoice(net *lntest.NetworkHarness, t *harnessTest) {
 		Memo:      "testing",
 		RPreimage: preimage,
 		Value:     paymentAmt,
+		Type: lnrpc.Invoice_CROSS_CHAIN_INVOICE,
 	}
 	invoiceResp, err := net.Bob.AddInvoice(ctxb, invoice)
 	if err != nil {
@@ -10446,11 +10447,11 @@ var testsCases = []*testCase{
 		name: "channel balance",
 		test: testChannelBalance,
 	},
-	{
+*/	{
 		name: "single hop invoice",
 		test: testSingleHopInvoice,
 	},
-	{
+/*	{
 		name: "sphinx replay persistence",
 		test: testSphinxReplayPersistence,
 	},
@@ -10565,7 +10566,7 @@ var testsCases = []*testCase{
 		name: "test multi-hop remote force close on-chain htlc timeout",
 		test: testMultHopRemoteForceCloseOnChainHtlcTimeout,
 	},
-*/	{
+	{
 		// [failed] bob: outgoing our commit watch and see, they sweep on chain
 		// bob: incoming our commit watch and learn preimage
 		// carol: incoming their commit know preimage
@@ -10579,7 +10580,7 @@ var testsCases = []*testCase{
 		name: "test multi-hop htlc remote chain claim",
 		test: testMultiHopHtlcRemoteChainClaim,
 	},
-/*	{
+	{
 		name: "switch circuit persistence",
 		test: testSwitchCircuitPersistence,
 	},
