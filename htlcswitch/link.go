@@ -2193,12 +2193,18 @@ func (l *channelLink) processRemoteAdds(fwdPkg *channeldb.FwdPkg,
 			// If this invoice type is cross-chain, so we need to
 			// notify the Raiden deamon that this invoiced was settled.
 			if invoice.Type == channeldb.CROSS_CHAIN_INVOICE {
-				raidenUrl := "http://127.0.0.1:5001/crosstransactiontry_hash/" +
-				string(pd.RHash[:])
-				resp, err := http.Get(raidenUrl)
-				if err != nil {
-					l.fail("unable to send notification to Raiden : %v", err)
-				}
+				raidenUrl := "http://127.0.0.1:5001/api/1/crosstransactiontr/"
+
+				jsonStr :=
+					"{" +
+						"\"hashr\": \" " + string(pd.RHash[:]) + "\"" +
+					"}"
+
+				req, err := http.NewRequest("POST", raidenUrl,
+					bytes.NewBuffer([]byte(jsonStr)))
+				req.Header.Set("Content-Type", "application/json")
+				client := &http.Client{}
+				resp, err := client.Do(req)
 				body, err := ioutil.ReadAll(resp.Body)
 				if err != nil {
 					l.fail("cann't handle the Raiden response : %v", err)
