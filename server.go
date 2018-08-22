@@ -275,6 +275,14 @@ func newServer(listenAddrs []string, chanDB *channeldb.DB, cc *chainControl,
 		selfAddrs = append(selfAddrs, lnAddr)
 	}
 
+	if len(selfAddrs) == 0 {
+		lnAddr, err := cfg.net.ResolveTCPAddr("tcp", listenAddrs[0])
+		if err != nil {
+			return nil, err
+		}
+		selfAddrs = append(selfAddrs, lnAddr)
+	}
+
 	chanGraph := chanDB.ChannelGraph()
 
 	// Parse node color from configuration.

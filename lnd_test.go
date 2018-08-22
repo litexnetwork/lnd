@@ -2560,7 +2560,6 @@ func testSingleHopInvoice(net *lntest.NetworkHarness, t *harnessTest) {
 		Memo:      "testing",
 		RPreimage: preimage,
 		Value:     paymentAmt,
-		Type: lnrpc.Invoice_CROSS_CHAIN_INVOICE,
 	}
 	invoiceResp, err := net.Bob.AddInvoice(ctxb, invoice)
 	if err != nil {
@@ -10463,11 +10462,11 @@ var testsCases = []*testCase{
 		name: "max pending channel",
 		test: testMaxPendingChannels,
 	},
-	{
+*/	{
 		name: "multi-hop payments",
 		test: testMultiHopPayments,
 	},
-	{
+/*	{
 		name: "private channels",
 		test: testPrivateChannels,
 	},

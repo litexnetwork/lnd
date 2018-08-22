@@ -522,7 +522,6 @@ func lndMain() error {
 		find, _ := server.FindPeerByPubStr(pubStr)
 		return find != nil
 	}
-
 	// Check macaroon authentication if macaroons aren't disabled.
 	if macaroonService != nil {
 		serverOpts = append(serverOpts,

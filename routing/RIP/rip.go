@@ -69,6 +69,7 @@ type LinkChange struct {
 }
 
 func NewRIPRouter(db *channeldb.DB, selfNode [33]byte, addr []net.Addr) *RIPRouter {
+	ripLog.Infof("rip router address is :%v", addr)
 	return &RIPRouter{
 		DB:           db,
 		SelfNode:     selfNode,
@@ -282,7 +283,7 @@ func (r *RIPRouter) FindPath (dest [33]byte) ([]wire.OutPoint,
 	if err != nil {
 		return nil, nil, err
 	}
-	ripLog.Infof("send the ripReqest: %v to nextHop: %v\n", nextNodeKye)
+	ripLog.Infof("send the ripReqest: %v to nextHop: %v\n", ripRequest, nextNodeKye)
 	err = r.SendToPeer(nextNodeKye, ripRequest)
 	if err != nil {
 		return nil, nil, err
