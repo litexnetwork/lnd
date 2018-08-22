@@ -2100,6 +2100,10 @@ var addInvoiceCommand = cli.Command{
 			Usage: "the amt of satoshis in this invoice",
 		},
 		cli.StringFlag{
+			Name: "type",
+			Usage: "indicate this invoices is normal or cross-chain",
+		},
+		cli.StringFlag{
 			Name: "description_hash",
 			Usage: "SHA-256 hash of the description of the payment. " +
 				"Used if the purpose of payment cannot naturally " +
