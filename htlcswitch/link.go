@@ -2193,7 +2193,7 @@ func (l *channelLink) processRemoteAdds(fwdPkg *channeldb.FwdPkg,
 			// If this invoice type is cross-chain, so we need to
 			// notify the Raiden deamon that this invoiced was settled.
 			if invoice.Type == channeldb.CROSS_CHAIN_INVOICE {
-				raidenUrl := "http://127.0.0.1:5001/api/1/crosstransactiontr/"
+				raidenUrl := "http://127.0.0.1:5001/api/1/crosstransactionr"
 
 				jsonStr :=
 					"{" +
