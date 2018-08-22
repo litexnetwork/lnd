@@ -20,6 +20,7 @@ import (
 	"github.com/roasbeef/btcd/chaincfg/chainhash"
 	"net/http"
 	"io/ioutil"
+	"encoding/json"
 )
 
 const (
@@ -2194,15 +2195,19 @@ func (l *channelLink) processRemoteAdds(fwdPkg *channeldb.FwdPkg,
 			// notify the Raiden deamon that this invoiced was settled.
 			if invoice.Type == channeldb.CROSS_CHAIN_INVOICE {
 				raidenUrl := "http://127.0.0.1:5001/api/1/crosstransactionr"
+				rHash := sha256.Sum256(preimage[:])
 
-				jsonStr :=
-					"{" +
-						"\"hashr\": \" " + string(pd.RHash[:]) + "\"" +
-					"}"
-
-				req, err := http.NewRequest("POST", raidenUrl,
-					bytes.NewBuffer([]byte(jsonStr)))
-				req.Header.Set("Content-Type", "application/json")
+				jsonStr := make(map[string]interface{})
+				jsonStr["hashr"] = string(rHash[:])
+				bytesData, err := json.Marshal(jsonStr)
+				if err != nil {
+					fmt.Println(err.Error() )
+					l.fail("unable to parse the rhash")
+				}
+				reader := bytes.NewReader(bytesData)
+				log.Infof("cross-chain RHash raiden request is : %v", reader)
+				req, err := http.NewRequest("POST", raidenUrl, reader)
+				req.Header.Set("Content-Type", "application/json;charset=UTF-8")
 				client := &http.Client{}
 				resp, err := client.Do(req)
 				body, err := ioutil.ReadAll(resp.Body)
