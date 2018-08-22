@@ -21,6 +21,7 @@ import (
 	"net/http"
 	"io/ioutil"
 	"encoding/json"
+	"encoding/base64"
 )
 
 const (
@@ -2198,7 +2199,7 @@ func (l *channelLink) processRemoteAdds(fwdPkg *channeldb.FwdPkg,
 				rHash := sha256.Sum256(preimage[:])
 
 				jsonStr := make(map[string]interface{})
-				jsonStr["hashr"] = string(rHash[:])
+				jsonStr["hashr"] = base64.StdEncoding.EncodeToString(rHash[:])
 				bytesData, err := json.Marshal(jsonStr)
 				if err != nil {
 					fmt.Println(err.Error() )
