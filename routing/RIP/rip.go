@@ -2,17 +2,17 @@ package RIP
 
 import (
 	"bytes"
+	"crypto/md5"
+	"encoding/hex"
+	"fmt"
+	"github.com/davecgh/go-spew/spew"
 	"github.com/lightningnetwork/lnd/channeldb"
 	"github.com/lightningnetwork/lnd/lnwire"
 	"github.com/roasbeef/btcd/btcec"
-	"sync"
-	"fmt"
-	"net"
 	"github.com/roasbeef/btcd/wire"
-	"crypto/md5"
-	"encoding/hex"
+	"net"
+	"sync"
 	"time"
-	"github.com/davecgh/go-spew/spew"
 )
 
 const NUM_RIP_BUFFER = 10
@@ -23,36 +23,36 @@ const (
 )
 
 type RIPRouter struct {
-	RouteTable   []*ripRouterEntry
-	SelfNode     [33]byte
-	Address 		[]net.Addr
-	UpdateBuffer chan *RIPUpdateMsg
-	RequestBuffer chan *RIPRequestMsg
-	ResponseBuffer chan *RIPResponseMsg
-	LinkChangeChan chan *LinkChange
-	Neighbours   map[[33]byte]struct{}
-	SendToPeer   func(target *btcec.PublicKey, msgs ...lnwire.Message) error
-	ConnectToPeer func(addr *lnwire.NetAddress, perm bool) error
-	DisconnectPeer func(pubKey *btcec.PublicKey) error
+	RouteTable       []*ripRouterEntry
+	SelfNode         [33]byte
+	Address          []net.Addr
+	UpdateBuffer     chan *RIPUpdateMsg
+	RequestBuffer    chan *RIPRequestMsg
+	ResponseBuffer   chan *RIPResponseMsg
+	LinkChangeChan   chan *LinkChange
+	Neighbours       map[[33]byte]struct{}
+	SendToPeer       func(target *btcec.PublicKey, msgs ...lnwire.Message) error
+	ConnectToPeer    func(addr *lnwire.NetAddress, perm bool) error
+	DisconnectPeer   func(pubKey *btcec.PublicKey) error
 	FindPeerByPubStr func(pubStr string) bool
-	DB           *channeldb.DB
-	requestPool	  map[string]chan lnwire.RIPResponse
-	mu         sync.RWMutex
-	quit         chan struct{}
+	DB               *channeldb.DB
+	requestPool      map[string]chan lnwire.RIPResponse
+	mu               sync.RWMutex
+	quit             chan struct{}
 }
 
 type RIPUpdateMsg struct {
-	msg *lnwire.RIPUpdate
+	msg  *lnwire.RIPUpdate
 	addr *lnwire.NetAddress
 }
 
 type RIPRequestMsg struct {
-	msg *lnwire.RIPRequest
+	msg  *lnwire.RIPRequest
 	addr *lnwire.NetAddress
 }
 
 type RIPResponseMsg struct {
-	msg *lnwire.RIPResponse
+	msg  *lnwire.RIPResponse
 	addr *lnwire.NetAddress
 }
 
@@ -71,17 +71,17 @@ type LinkChange struct {
 func NewRIPRouter(db *channeldb.DB, selfNode [33]byte, addr []net.Addr) *RIPRouter {
 	ripLog.Infof("rip router address is :%v", addr)
 	return &RIPRouter{
-		DB:           db,
-		SelfNode:     selfNode,
-		UpdateBuffer: make(chan *RIPUpdateMsg, NUM_RIP_BUFFER),
-		RequestBuffer: make(chan *RIPRequestMsg, NUM_RIP_BUFFER),
+		DB:             db,
+		SelfNode:       selfNode,
+		UpdateBuffer:   make(chan *RIPUpdateMsg, NUM_RIP_BUFFER),
+		RequestBuffer:  make(chan *RIPRequestMsg, NUM_RIP_BUFFER),
 		ResponseBuffer: make(chan *RIPResponseMsg, NUM_RIP_BUFFER),
 		LinkChangeChan: make(chan *LinkChange, NUM_RIP_BUFFER),
-		Neighbours :    make(map[[33]byte]struct{}),
-        requestPool: make(map[string]chan lnwire.RIPResponse),
-		RouteTable:   make([]*ripRouterEntry, 0),
-		Address:      addr,
-		quit:         make(chan struct{}),
+		Neighbours:     make(map[[33]byte]struct{}),
+		requestPool:    make(map[string]chan lnwire.RIPResponse),
+		RouteTable:     make([]*ripRouterEntry, 0),
+		Address:        addr,
+		quit:           make(chan struct{}),
 	}
 }
 
@@ -94,15 +94,15 @@ func (r *RIPRouter) Start(wg *sync.WaitGroup) {
 			copy(sourceKey[:], updateMsg.addr.IdentityKey.SerializeCompressed())
 			r.handleUpdate(updateMsg.msg, sourceKey)
 
-		case linkChange := <- r.LinkChangeChan:
+		case linkChange := <-r.LinkChangeChan:
 			switch linkChange.ChangeType {
 			// If there is a new neighbour, we handle it.
 			case LINK_ADD:
 				r.Neighbours[linkChange.NeighbourID] = struct{}{}
 				ripLog.Infof("add link")
 				entry := &ripRouterEntry{
-					Dest: linkChange.NeighbourID,
-					NextHop: linkChange.NeighbourID,
+					Dest:     linkChange.NeighbourID,
+					NextHop:  linkChange.NeighbourID,
 					Distance: 1,
 				}
 				if exEntry, err := r.findEntry(linkChange.NeighbourID[:]); err == nil {
@@ -115,16 +115,16 @@ func (r *RIPRouter) Start(wg *sync.WaitGroup) {
 				ripLog.Debugf("router table : %v",
 					newLogClosure(func() string {
 						return spew.Sdump(r.RouteTable)
-				}),
+					}),
 				)
 				neighbourPubKey, err := btcec.ParsePubKey(linkChange.NeighbourID[:], btcec.S256())
 				if err != nil {
 					ripLog.Errorf("can not parse the pub key: %v", linkChange.NeighbourID)
 				}
 				// We send the route table to the new neighbour.
-				for _, routeEntry := range r.RouteTable  {
+				for _, routeEntry := range r.RouteTable {
 					update := &lnwire.RIPUpdate{
-						Distance: routeEntry.Distance,
+						Distance:    routeEntry.Distance,
 						Destination: routeEntry.Dest,
 					}
 					r.SendToPeer(neighbourPubKey, update)
@@ -151,11 +151,11 @@ func (r *RIPRouter) Start(wg *sync.WaitGroup) {
 					}),
 				)
 			}
-		case ripRequest := <- r.RequestBuffer:
+		case ripRequest := <-r.RequestBuffer:
 			ripLog.Debugf("revieved the ripRequest:%v", ripRequest)
 			r.handleRipRequest(ripRequest)
 
-		case ripResponse := <- r.ResponseBuffer:
+		case ripResponse := <-r.ResponseBuffer:
 			ripLog.Infof("responseBUffer recived")
 
 			ripLog.Infof("%v", r.handleRipResponse(ripResponse))
@@ -168,7 +168,7 @@ func (r *RIPRouter) Start(wg *sync.WaitGroup) {
 }
 
 func (r *RIPRouter) Stop() {
-	ripLog.Infof( "rip stopped ")
+	ripLog.Infof("rip stopped ")
 	close(r.quit)
 }
 
@@ -203,7 +203,7 @@ func (r *RIPRouter) handleUpdate(update *lnwire.RIPUpdate, source [33]byte) erro
 		}
 	}
 	// if this entry is not in the route table, we add this update into table
-	if !ifExist && !bytes.Equal(dest[:], r.SelfNode[:]){
+	if !ifExist && !bytes.Equal(dest[:], r.SelfNode[:]) {
 		newEntry := ripRouterEntry{
 			Distance: distance,
 			Dest:     dest,
@@ -230,8 +230,8 @@ func (r *RIPRouter) handleUpdate(update *lnwire.RIPUpdate, source [33]byte) erro
 	return nil
 }
 
-func (r *RIPRouter) sendToNeighbours (source [33]byte,
-	dest [33]byte, distance uint8 ) error {
+func (r *RIPRouter) sendToNeighbours(source [33]byte,
+	dest [33]byte, distance uint8) error {
 	for peer, _ := range r.Neighbours {
 		if !bytes.Equal(peer[:], source[:]) {
 			peerPubKey, err := btcec.ParsePubKey(peer[:], btcec.S256())
@@ -254,16 +254,16 @@ func (r *RIPRouter) sendToNeighbours (source [33]byte,
 			ripLog.Infof("send the rip update:%v to %v\n", update, peerPubKey)
 		}
 	}
-	return  nil
+	return nil
 }
 
 // TODO(xuehan): add amount parameter
-func (r *RIPRouter) FindPath (dest [33]byte) ([]wire.OutPoint,
+func (r *RIPRouter) FindPath(dest [33]byte) ([]wire.OutPoint,
 	[][33]byte, error) {
 	ripRequest := &lnwire.RIPRequest{
 		SourceNodeID: r.SelfNode,
-		Addresses: r.Address,
-		DestNodeID:dest,
+		Addresses:    r.Address,
+		DestNodeID:   dest,
 	}
 	requestID := []byte(genRequestID())
 	copy(ripRequest.RequestID[:], requestID)
@@ -279,7 +279,7 @@ func (r *RIPRouter) FindPath (dest [33]byte) ([]wire.OutPoint,
 		return nil, nil, err
 	}
 	ripLog.Infof("找到entry")
-	nextNodeKye, err  := btcec.ParsePubKey(entry.NextHop[:], btcec.S256())
+	nextNodeKye, err := btcec.ParsePubKey(entry.NextHop[:], btcec.S256())
 	if err != nil {
 		return nil, nil, err
 	}
@@ -289,9 +289,9 @@ func (r *RIPRouter) FindPath (dest [33]byte) ([]wire.OutPoint,
 		return nil, nil, err
 	}
 	select {
-	case response := <- r.requestPool[string(requestID)]:
+	case response := <-r.requestPool[string(requestID)]:
 		ripLog.Infof("recieved the ripResponse: %v ", response)
-		return response.PathChannels,response.PathNodes, nil
+		return response.PathChannels, response.PathNodes, nil
 	case <-time.After(5 * time.Second):
 		// if timeout, remove the channel from requestPool.
 		r.mu.Lock()
@@ -300,19 +300,19 @@ func (r *RIPRouter) FindPath (dest [33]byte) ([]wire.OutPoint,
 
 		ripLog.Infof("rip findPath time out, the requestID is :%v \n", requestID)
 
-		return nil, nil,fmt.Errorf("timeout for the routing path\n")
+		return nil, nil, fmt.Errorf("timeout for the routing path\n")
 	}
-	return nil, nil,nil
+	return nil, nil, nil
 }
 
-func (r *RIPRouter) handleRipRequest (msg *RIPRequestMsg) error {
+func (r *RIPRouter) handleRipRequest(msg *RIPRequestMsg) error {
 	ripReuest := msg.msg
 	dest := ripReuest.DestNodeID
 	var entry *ripRouterEntry
 	var err error
 	// If we get arrived in the destination.
 	if bytes.Equal(dest[:], r.SelfNode[:]) {
-		ripLog.Infof( "我们是终点节点，需要发送response")
+		ripLog.Infof("我们是终点节点，需要发送response")
 		ripResponse := &lnwire.RIPResponse{
 			Success: 1,
 		}
@@ -336,7 +336,9 @@ func (r *RIPRouter) handleRipRequest (msg *RIPRequestMsg) error {
 				break
 			}
 		}
-		if find == false {ripResponse.Success = 0}
+		if find == false {
+			ripResponse.Success = 0
+		}
 
 		// TODO(xuehan): try all possible address.
 		// some times this value may be null, find the reason.
@@ -345,13 +347,13 @@ func (r *RIPRouter) handleRipRequest (msg *RIPRequestMsg) error {
 				"response to the source node")
 		}
 		sourceAddr := ripReuest.Addresses[0]
-		identityKey, err := btcec.ParsePubKey(ripReuest.SourceNodeID[:],btcec.S256())
+		identityKey, err := btcec.ParsePubKey(ripReuest.SourceNodeID[:], btcec.S256())
 		if err != nil {
 			return err
 		}
 		sourceNetAddr := &lnwire.NetAddress{
 			IdentityKey: identityKey,
-			Address: sourceAddr,
+			Address:     sourceAddr,
 		}
 		r.mu.Lock()
 		connectedToSource := r.FindPeerByPubStr(string(ripReuest.SourceNodeID[:]))
@@ -365,14 +367,14 @@ func (r *RIPRouter) handleRipRequest (msg *RIPRequestMsg) error {
 		err = r.SendToPeer(identityKey, ripResponse)
 		ripLog.Infof("发送response：%v 到： %v", ripResponse, identityKey)
 		if !connectedToSource {
-			ripLog.Infof( "断开链接")
+			ripLog.Infof("断开链接")
 			err = r.DisconnectPeer(identityKey)
 		}
 		r.mu.Unlock()
 		return err
 
-	} else if entry, err = r.findEntry(dest[:]); err == nil  {
-	// If we arrived in the inter-node
+	} else if entry, err = r.findEntry(dest[:]); err == nil {
+		// If we arrived in the inter-node
 		ripLog.Infof("we are the inter-node for the questID:%v \n", ripReuest.RequestID)
 		dbChans, err := r.DB.FetchAllOpenChannels()
 		if err != nil {
@@ -381,7 +383,7 @@ func (r *RIPRouter) handleRipRequest (msg *RIPRequestMsg) error {
 		for _, dbChan := range dbChans {
 			linkNodeID := dbChan.IdentityPub.SerializeCompressed()
 			if bytes.Equal(linkNodeID[:], msg.addr.IdentityKey.SerializeCompressed()) {
-				ripReuest.PathNodes    = append(ripReuest.PathNodes, r.SelfNode)
+				ripReuest.PathNodes = append(ripReuest.PathNodes, r.SelfNode)
 				ripReuest.PathChannels = append(ripReuest.PathChannels,
 					dbChan.FundingOutpoint)
 				peerPubKey, err := btcec.ParsePubKey(entry.NextHop[:], btcec.S256())
@@ -401,21 +403,21 @@ func (r *RIPRouter) handleRipRequest (msg *RIPRequestMsg) error {
 		ripLog.Infof("we can't find the entry to arrive the dest\n")
 		ripResponse := &lnwire.RIPResponse{
 			RequestID: ripReuest.RequestID,
-			Success: 0,
+			Success:   0,
 		}
 		// TODO: This value sometimes will be null, find the reason.
 		if len(ripReuest.Addresses) == 0 {
 			return fmt.Errorf("the ripRequest doesn't hold the source node address," +
 				"we cann't send the response to source node")
 		}
-		sourceAddr:= ripReuest.Addresses[0]
-		identityKey, err := btcec.ParsePubKey(ripReuest.SourceNodeID[:],btcec.S256())
+		sourceAddr := ripReuest.Addresses[0]
+		identityKey, err := btcec.ParsePubKey(ripReuest.SourceNodeID[:], btcec.S256())
 		if err != nil {
 			return err
 		}
 		sourceNetAddr := &lnwire.NetAddress{
 			IdentityKey: identityKey,
-			Address: sourceAddr,
+			Address:     sourceAddr,
 		}
 		// TODO(xuehan): try all address.
 		r.mu.Lock()
@@ -438,22 +440,22 @@ func (r *RIPRouter) handleRipRequest (msg *RIPRequestMsg) error {
 	// TODO(xuehan): check if the channel capacity is more than the
 	// amount required.
 
-	return  nil
+	return nil
 }
 
-func (r *RIPRouter) handleRipResponse (msg *RIPResponseMsg) error {
+func (r *RIPRouter) handleRipResponse(msg *RIPResponseMsg) error {
 	ripResponse := msg.msg
 	/*
-	if !bytes.Equal(msg.addr.IdentityKey.SerializeCompressed(),
-		ripResponse.RequestID[:]) || ripResponse.Success != 1 {
-		return fmt.Errorf("rip route failed")
-	}
+		if !bytes.Equal(msg.addr.IdentityKey.SerializeCompressed(),
+			ripResponse.RequestID[:]) || ripResponse.Success != 1 {
+			return fmt.Errorf("rip route failed")
+		}
 	*/
 	r.mu.RLock()
-	ripLog.Infof("requestID:%v" ,ripResponse.RequestID[:])
-	if _,ok := r.requestPool[string(ripResponse.RequestID[:])]; !ok {
+	ripLog.Infof("requestID:%v", ripResponse.RequestID[:])
+	if _, ok := r.requestPool[string(ripResponse.RequestID[:])]; !ok {
 		r.mu.RUnlock()
-		return 	fmt.Errorf("this response is timed out or no request " +
+		return fmt.Errorf("this response is timed out or no request " +
 			"matches")
 	}
 	ripLog.Infof("requestPool recieved ")
@@ -466,7 +468,7 @@ func (r *RIPRouter) handleRipResponse (msg *RIPResponseMsg) error {
 // update router table.
 func (r *RIPRouter) ProcessRIPUpdateMsg(msg *lnwire.RIPUpdate,
 	peerAddress *lnwire.NetAddress) {
-	ripLog.Infof("recieved the rip update :%v from %v", msg , peerAddress)
+	ripLog.Infof("recieved the rip update :%v from %v", msg, peerAddress)
 	select {
 	case r.UpdateBuffer <- &RIPUpdateMsg{msg, peerAddress}:
 	case <-r.quit:
@@ -478,7 +480,7 @@ func (r *RIPRouter) ProcessRIPUpdateMsg(msg *lnwire.RIPUpdate,
 // update router table.
 func (r *RIPRouter) ProcessRIPRequestMsg(msg *lnwire.RIPRequest,
 	peerAddress *lnwire.NetAddress) {
-	ripLog.Infof("recieved the rip request:%v from %v", msg , peerAddress)
+	ripLog.Infof("recieved the rip request:%v from %v", msg, peerAddress)
 	select {
 	case r.RequestBuffer <- &RIPRequestMsg{msg, peerAddress}:
 	case <-r.quit:
@@ -491,7 +493,7 @@ func (r *RIPRouter) ProcessRIPRequestMsg(msg *lnwire.RIPRequest,
 func (r *RIPRouter) ProcessRIPResponseMsg(msg *lnwire.RIPResponse,
 	peerAddress *lnwire.NetAddress) {
 
-	ripLog.Infof("recieved the rip response:%v from %v", msg , peerAddress)
+	ripLog.Infof("recieved the rip response:%v from %v", msg, peerAddress)
 	select {
 	case r.ResponseBuffer <- &RIPResponseMsg{msg, peerAddress}:
 	case <-r.quit:
@@ -501,13 +503,13 @@ func (r *RIPRouter) ProcessRIPResponseMsg(msg *lnwire.RIPResponse,
 
 // findEntry tries to find the entry, which destination is equal to the
 //
-func (r *RIPRouter) findEntry (dest []byte) (*ripRouterEntry, error) {
+func (r *RIPRouter) findEntry(dest []byte) (*ripRouterEntry, error) {
 	for _, entry := range r.RouteTable {
 		if bytes.Equal(dest, entry.Dest[:]) {
 			return entry, nil
 		}
 	}
-	return nil, fmt.Errorf("RIP router cann't find the destination : %v  in" +
+	return nil, fmt.Errorf("RIP router cann't find the destination : %v  in"+
 		"route table", dest)
 }
 
@@ -516,7 +518,7 @@ func genRequestID() string {
 	return "0" + str
 }
 
-func MD5(text string) string{
+func MD5(text string) string {
 	ctx := md5.New()
 	ctx.Write([]byte(text))
 	return hex.EncodeToString(ctx.Sum(nil))
