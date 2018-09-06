@@ -775,6 +775,103 @@ func testBasicChannelFunding(net *lntest.NetworkHarness, t *harnessTest) {
 	closeChannelAndAssert(ctxt, t, net, net.Alice, chanPoint, false)
 }
 
+func testReopenChannel(net *lntest.NetworkHarness, t *harnessTest) {
+	timeout := time.Duration(time.Second * 5)
+	ctxb := context.Background()
+
+	chanAmt := maxFundingAmount
+	pushAmt := btcutil.Amount(100000)
+
+	// First establish a channel with a capacity of 0.5 BTC between Alice
+	// and Bob with Alice pushing 100k satoshis to Bob's side during
+	// funding. This function will block until the channel itself is fully
+	// open or an error occurs in the funding process. A series of
+	// assertions will be executed to ensure the funding process completed
+	// successfully.
+	ctxt, _ := context.WithTimeout(ctxb, timeout)
+	chanPoint := openChannelAndAssert(
+		ctxt, t, net, net.Alice, net.Bob, chanAmt, pushAmt, false,
+	)
+
+	ctxt, _ = context.WithTimeout(ctxb, time.Second*15)
+	err := net.Alice.WaitForNetworkChannelOpen(ctxt, chanPoint)
+	if err != nil {
+		t.Fatalf("alice didn't report channel: %v", err)
+	}
+	err = net.Bob.WaitForNetworkChannelOpen(ctxt, chanPoint)
+	if err != nil {
+		t.Fatalf("bob didn't report channel: %v", err)
+	}
+
+	// With then channel open, ensure that the amount specified above has
+	// properly been pushed to Bob.
+	balReq := &lnrpc.ChannelBalanceRequest{}
+	aliceBal, err := net.Alice.ChannelBalance(ctxb, balReq)
+	if err != nil {
+		t.Fatalf("unable to get alice's balance: %v", err)
+	}
+	bobBal, err := net.Bob.ChannelBalance(ctxb, balReq)
+	if err != nil {
+		t.Fatalf("unable to get bobs's balance: %v", err)
+	}
+	if aliceBal.Balance != int64(chanAmt-pushAmt-calcStaticFee(0)) {
+		t.Fatalf("alice's balance is incorrect: expected %v got %v",
+			chanAmt-pushAmt-calcStaticFee(0), aliceBal)
+	}
+	if bobBal.Balance != int64(pushAmt) {
+		t.Fatalf("bob's balance is incorrect: expected %v got %v",
+			pushAmt, bobBal.Balance)
+	}
+
+	// Finally, immediately close the channel. This function will also
+	// block until the channel is closed and will additionally assert the
+	// relevant channel closing post conditions.
+	ctxt, _ = context.WithTimeout(ctxb, timeout)
+	closeChannelAndAssert(ctxt, t, net, net.Alice, chanPoint, false)
+
+
+	ctxt, _ = context.WithTimeout(ctxb, timeout)
+	chanPoint = openChannelAndAssert(
+		ctxt, t, net, net.Alice, net.Bob, chanAmt, pushAmt, false,
+	)
+
+	ctxt, _ = context.WithTimeout(ctxb, time.Second*15)
+	err = net.Alice.WaitForNetworkChannelOpen(ctxt, chanPoint)
+	if err != nil {
+		t.Fatalf("alice didn't report channel: %v", err)
+	}
+	err = net.Bob.WaitForNetworkChannelOpen(ctxt, chanPoint)
+	if err != nil {
+		t.Fatalf("bob didn't report channel: %v", err)
+	}
+
+	// With then channel open, ensure that the amount specified above has
+	// properly been pushed to Bob.
+	balReq = &lnrpc.ChannelBalanceRequest{}
+	aliceBal, err = net.Alice.ChannelBalance(ctxb, balReq)
+	if err != nil {
+		t.Fatalf("unable to get alice's balance: %v", err)
+	}
+	bobBal, err = net.Bob.ChannelBalance(ctxb, balReq)
+	if err != nil {
+		t.Fatalf("unable to get bobs's balance: %v", err)
+	}
+	if aliceBal.Balance != int64(chanAmt-pushAmt-calcStaticFee(0)) {
+		t.Fatalf("alice's balance is incorrect: expected %v got %v",
+			chanAmt-pushAmt-calcStaticFee(0), aliceBal)
+	}
+	if bobBal.Balance != int64(pushAmt) {
+		t.Fatalf("bob's balance is incorrect: expected %v got %v",
+			pushAmt, bobBal.Balance)
+	}
+
+	// Finally, immediately close the channel. This function will also
+	// block until the channel is closed and will additionally assert the
+	// relevant channel closing post conditions.
+	ctxt, _ = context.WithTimeout(ctxb, timeout)
+	closeChannelAndAssert(ctxt, t, net, net.Alice, chanPoint, false)
+}
+
 // testUpdateChannelPolicy tests that policy updates made to a channel
 // gets propagated to other nodes in the network.
 func testUpdateChannelPolicy(net *lntest.NetworkHarness, t *harnessTest) {
@@ -10414,9 +10511,13 @@ var testsCases = []*testCase{
 		name: "onchain fund recovery",
 		test: testOnchainFundRecovery,
 	},
-*/	{
+	{
 		name: "basic funding flow",
 		test: testBasicChannelFunding,
+	},
+*/	{
+		name: "reopen channel",
+		test: testReopenChannel,
 	},
 /*	{
 		name: "update channel policy",
