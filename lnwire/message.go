@@ -52,6 +52,9 @@ const (
 	MsgRIPUpdate						   = 512
 	MsgRIPRequest						   = 513
 	MsgRIPResponse						   = 514
+	MsgHULAProbe						   = 515
+	MsgHULARequest						   = 516
+	MsgHULAResponse						   = 517
 )
 
 // String return the string representation of message type.
@@ -109,6 +112,12 @@ func (t MessageType) String() string {
 		return "RIPResquest"
 	case MsgRIPResponse:
 		return "RIPResponse"
+	case MsgHULAProbe:
+		return "HULAProbe"
+	case MsgHULARequest:
+		return "HULARequest"
+	case MsgHULAResponse:
+		return "HULAResponse"
 	default:
 		return "<unknown>"
 	}
@@ -206,6 +215,12 @@ func makeEmptyMessage(msgType MessageType) (Message, error) {
 		msg = &RIPRequest{}
 	case MsgRIPResponse:
 		msg = &RIPResponse{}
+	case MsgHULAProbe:
+		msg = &HULAProbe{}
+	case MsgHULARequest:
+		msg = &HULARequest{}
+	case MsgHULAResponse:
+		msg = &HULAResponse{}
 	default:
 		return nil, &UnknownMessage{msgType}
 	}
