@@ -4106,10 +4106,10 @@ func testBasicChannelAddFund(net *lntest.NetworkHarness, t *harnessTest) {
 
 func testBasicChannelExtractFund(net *lntest.NetworkHarness, t *harnessTest) {
 	const (
-		numChannels = 2
-		timeout     = time.Duration(time.Second * 5)
-		amount      = maxFundingAmount / 2
-		extractAmount   = maxFundingAmount / 8
+		numChannels   = 2
+		timeout       = time.Duration(time.Second * 5)
+		amount        = maxFundingAmount / 2
+		extractAmount = maxFundingAmount / 8
 	)
 	// Open the channel between Alice and Bob, asserting that the
 	// channel has been properly open on-chain.
@@ -4293,7 +4293,7 @@ func testChannelExtractFundBalance(net *lntest.NetworkHarness, t *harnessTest) {
 
 	// As this is a single funder channel, Alice's balance should be
 	// exactly 0.5 BTC since now state transitions have taken place yet.
-	checkChannelBalance(net.Alice, amount-calcStaticFee(0) - extractAmount)
+	checkChannelBalance(net.Alice, amount-calcStaticFee(0)-extractAmount)
 
 	// Ensure Bob currently has no available balance within the channel.
 	checkChannelBalance(net.Bob, 0)
@@ -5226,10 +5226,10 @@ func testMultiHopPaymentsForExtractFund(net *lntest.NetworkHarness, t *harnessTe
 	// ********** AddFund to the channel between Dave and Alice.
 
 	ctxt, _ = context.WithTimeout(ctxb, timeout)
-	fmt.Printf("%v\n",chanPointDave)
+	fmt.Printf("%v\n", chanPointDave)
 
 	extractAmt := btcutil.Amount(100000)
-	newChanPointDave := extractFundAndAssert(ctxb, t, net,dave, net.Alice, extractAmt, chanPointDave)
+	newChanPointDave := extractFundAndAssert(ctxb, t, net, dave, net.Alice, extractAmt, chanPointDave)
 	networkChans[1] = newChanPointDave
 
 	txidHash, err = getChanPointFundingTxid(newChanPointDave)
@@ -10507,214 +10507,209 @@ type testCase struct {
 }
 
 var testsCases = []*testCase{
-/*	{
-		name: "onchain fund recovery",
-		test: testOnchainFundRecovery,
-	},
-	{
-		name: "basic funding flow",
-		test: testBasicChannelFunding,
-	},
-*/	{
-		name: "reopen channel",
-		test: testReopenChannel,
-	},
-/*	{
-		name: "update channel policy",
-		test: testUpdateChannelPolicy,
-	},
-	{
-		name: "open channel reorg test",
-		test: testOpenChannelAfterReorg,
-	},
-	{
-		name: "disconnecting target peer",
-		test: testDisconnectingTargetPeer,
-	},
-	{
-		name: "graph topology notifications",
-		test: testGraphTopologyNotifications,
-	},
-	{
-		name: "funding flow persistence",
-		test: testChannelFundingPersistence,
-	},
-	{
-		name: "channel force closure",
-		test: testChannelForceClosure,
-	},
-	{
-		name: "channel balance",
-		test: testChannelBalance,
-	},
-	{
+	/*	{
+			name: "onchain fund recovery",
+			test: testOnchainFundRecovery,
+		},
+		{
+			name: "basic funding flow",
+			test: testBasicChannelFunding,
+		},
+		{
+			name: "update channel policy",
+			test: testUpdateChannelPolicy,
+		},
+		{
+			name: "open channel reorg test",
+			test: testOpenChannelAfterReorg,
+		},
+		{
+			name: "disconnecting target peer",
+			test: testDisconnectingTargetPeer,
+		},
+		{
+			name: "graph topology notifications",
+			test: testGraphTopologyNotifications,
+		},
+		{
+			name: "funding flow persistence",
+			test: testChannelFundingPersistence,
+		},
+		{
+			name: "channel force closure",
+			test: testChannelForceClosure,
+		},
+		{
+			name: "channel balance",
+			test: testChannelBalance,
+		},
+	*/{
 		name: "single hop invoice",
 		test: testSingleHopInvoice,
 	},
-	{
-		name: "sphinx replay persistence",
-		test: testSphinxReplayPersistence,
-	},
-	{
-		name: "list outgoing payments",
-		test: testListPayments,
-	},
-	{
-		name: "max pending channel",
-		test: testMaxPendingChannels,
-	},
-	{
+	/*	{
+			name: "sphinx replay persistence",
+			test: testSphinxReplayPersistence,
+		},
+		{
+			name: "list outgoing payments",
+			test: testListPayments,
+		},
+		{
+			name: "max pending channel",
+			test: testMaxPendingChannels,
+		},
+	*/{
 		name: "multi-hop payments",
 		test: testMultiHopPayments,
 	},
-	{
-		name: "private channels",
-		test: testPrivateChannels,
-	},
-	{
-		name: "invoice routing hints",
-		test: testInvoiceRoutingHints,
-	},
-	{
-		name: "multi-hop payments over private channels",
-		test: testMultiHopOverPrivateChannels,
-	},
-	{
-		name: "multiple channel creation",
-		test: testBasicChannelCreation,
-	},
-	{
-		name: "multiple channel add fund",
-		test: testBasicChannelAddFund,
-	},
-	{
-		name: "channel add fund balance",
-		test: testChannelAddFundBalance,
-	},
-	{
-		name: "single hop invoice for add fund",
-		test: testSingleHopInvoiceForAddFund,
-	},
+	/*	{
+			name: "private channels",
+			test: testPrivateChannels,
+		},
+		{
+			name: "invoice routing hints",
+			test: testInvoiceRoutingHints,
+		},
+		{
+			name: "multi-hop payments over private channels",
+			test: testMultiHopOverPrivateChannels,
+		},
+		{
+			name: "multiple channel creation",
+			test: testBasicChannelCreation,
+		},
+		{
+			name: "multiple channel add fund",
+			test: testBasicChannelAddFund,
+		},
+		{
+			name: "channel add fund balance",
+			test: testChannelAddFundBalance,
+		},
+		{
+			name: "single hop invoice for add fund",
+			test: testSingleHopInvoiceForAddFund,
+		},
+		{
+			name: "multiple hop payment for add fund",
+			test: testMultiHopPaymentsForAddFund,
+		},
+		{
+			name: "multiple channel extract fund",
+			test: testBasicChannelExtractFund,
+		},
+		{
+			name: "channel exctract fund balance",
+			test: testChannelExtractFundBalance,
+		},
+		{
+			name: "single hop invoice for extract fund",
+			test: testSingleHopInvoiceForExtractFund,
+		},
+		{
+			name: "multiple hop payment for extract fund",
+			test: testMultiHopPaymentsForExtractFund,
+		},
+		{
+			name: "invoice update subscription",
+			test: testInvoiceSubscriptions,
+		},
+		{
+			name: "multi-hop htlc error propagation",
+			test: testHtlcErrorPropagation,
+		},
+		// TODO(roasbeef): multi-path integration test
+		{
+			name: "node announcement",
+			test: testNodeAnnouncement,
+		},
+		{
+			name: "node sign verify",
+			test: testNodeSignVerify,
+		},
+		{
+			name: "async payments benchmark",
+			test: testAsyncPayments,
+		},
+		{
+			name: "async bidirectional payments",
+			test: testBidirectionalAsyncPayments,
+		},
+		{
+			// bob: outgoing our commit timeout
+			// carol: incoming their commit watch and see timeout
+			name: "test multi-hop htlc local force close immediate expiry",
+			test: testMultiHopHtlcLocalTimeout,
+		},
+		{
+			// bob: outgoing watch and see, they sweep on chain
+			// carol: incoming our commit, know preimage
+			name: "test multi-hop htlc receiver chain claim",
+			test: testMultiHopReceiverChainClaim,
+		},
+		{
+			// bob: outgoing our commit watch and see timeout
+			// carol: incoming their commit watch and see timeout
+			name: "test multi-hop local force close on-chain htlc timeout",
+			test: testMultiHopLocalForceCloseOnChainHtlcTimeout,
+		},
 
-	{
-		name: "multiple hop payment for add fund",
-		test: testMultiHopPaymentsForAddFund,
-	},
-	{
-		name: "multiple channel extract fund",
-		test: testBasicChannelExtractFund,
-	},
-	{
-		name: "channel exctract fund balance",
-		test: testChannelExtractFundBalance,
-	},
-	{
-		name: "single hop invoice for extract fund",
-		test: testSingleHopInvoiceForExtractFund,
-	},
-	{
-		name: "multiple hop payment for extract fund",
-		test: testMultiHopPaymentsForExtractFund,
-	},
-	{
-		name: "invoice update subscription",
-		test: testInvoiceSubscriptions,
-	},
-	{
-		name: "multi-hop htlc error propagation",
-		test: testHtlcErrorPropagation,
-	},
-	// TODO(roasbeef): multi-path integration test
-	{
-		name: "node announcement",
-		test: testNodeAnnouncement,
-	},
-	{
-		name: "node sign verify",
-		test: testNodeSignVerify,
-	},
-	{
-		name: "async payments benchmark",
-		test: testAsyncPayments,
-	},
-	{
-		name: "async bidirectional payments",
-		test: testBidirectionalAsyncPayments,
-	},
-	{
-		// bob: outgoing our commit timeout
-		// carol: incoming their commit watch and see timeout
-		name: "test multi-hop htlc local force close immediate expiry",
-		test: testMultiHopHtlcLocalTimeout,
-	},
-	{
-		// bob: outgoing watch and see, they sweep on chain
-		// carol: incoming our commit, know preimage
-		name: "test multi-hop htlc receiver chain claim",
-		test: testMultiHopReceiverChainClaim,
-	},
-	{
-		// bob: outgoing our commit watch and see timeout
-		// carol: incoming their commit watch and see timeout
-		name: "test multi-hop local force close on-chain htlc timeout",
-		test: testMultiHopLocalForceCloseOnChainHtlcTimeout,
-	},
-
-	{
-		// bob: outgoing their commit watch and see timeout
-		// carol: incoming our commit watch and see timeout
-		name: "test multi-hop remote force close on-chain htlc timeout",
-		test: testMultHopRemoteForceCloseOnChainHtlcTimeout,
-	},
-	{
-		// [failed] bob: outgoing our commit watch and see, they sweep on chain
-		// bob: incoming our commit watch and learn preimage
-		// carol: incoming their commit know preimage
-		name: "test multi-hop htlc local chain claim",
-		test: testMultiHopHtlcLocalChainClaim,
-	},
-	{
-		// [failed] bob: outgoing their commit watch and see, they sweep on chain
-		// bob: incoming their commit watch and learn preimage
-		// carol: incoming our commit know preimage
-		name: "test multi-hop htlc remote chain claim",
-		test: testMultiHopHtlcRemoteChainClaim,
-	},
-	{
-		name: "switch circuit persistence",
-		test: testSwitchCircuitPersistence,
-	},
-	{
-		name: "switch offline delivery",
-		test: testSwitchOfflineDelivery,
-	},
-	{
-		name: "switch offline delivery persistence",
-		test: testSwitchOfflineDeliveryPersistence,
-	},
-	{
-		name: "switch offline delivery outgoing offline",
-		test: testSwitchOfflineDeliveryOutgoingOffline,
-	},
-	{
-		// TODO(roasbeef): test always needs to be last as Bob's state
-		// is borked since we trick him into attempting to cheat Alice?
-		name: "revoked uncooperative close retribution",
-		test: testRevokedCloseRetribution,
-	},
-	{
-		name: "revoked uncooperative close retribution zero value remote output",
-		test: testRevokedCloseRetributionZeroValueRemoteOutput,
-	},
-	{
-		name: "revoked uncooperative close retribution remote hodl",
-		test: testRevokedCloseRetributionRemoteHodl,
-	},
-	{
-		name: "query routes",
-		test: testQueryRoutes,
-	},
-*/
+		{
+			// bob: outgoing their commit watch and see timeout
+			// carol: incoming our commit watch and see timeout
+			name: "test multi-hop remote force close on-chain htlc timeout",
+			test: testMultHopRemoteForceCloseOnChainHtlcTimeout,
+		},
+		{
+			// [failed] bob: outgoing our commit watch and see, they sweep on chain
+			// bob: incoming our commit watch and learn preimage
+			// carol: incoming their commit know preimage
+			name: "test multi-hop htlc local chain claim",
+			test: testMultiHopHtlcLocalChainClaim,
+		},
+		{
+			// [failed] bob: outgoing their commit watch and see, they sweep on chain
+			// bob: incoming their commit watch and learn preimage
+			// carol: incoming our commit know preimage
+			name: "test multi-hop htlc remote chain claim",
+			test: testMultiHopHtlcRemoteChainClaim,
+		},
+		{
+			name: "switch circuit persistence",
+			test: testSwitchCircuitPersistence,
+		},
+		{
+			name: "switch offline delivery",
+			test: testSwitchOfflineDelivery,
+		},
+		{
+			name: "switch offline delivery persistence",
+			test: testSwitchOfflineDeliveryPersistence,
+		},
+		{
+			name: "switch offline delivery outgoing offline",
+			test: testSwitchOfflineDeliveryOutgoingOffline,
+		},
+		{
+			// TODO(roasbeef): test always needs to be last as Bob's state
+			// is borked since we trick him into attempting to cheat Alice?
+			name: "revoked uncooperative close retribution",
+			test: testRevokedCloseRetribution,
+		},
+		{
+			name: "revoked uncooperative close retribution zero value remote output",
+			test: testRevokedCloseRetributionZeroValueRemoteOutput,
+		},
+		{
+			name: "revoked uncooperative close retribution remote hodl",
+			test: testRevokedCloseRetributionRemoteHodl,
+		},
+		{
+			name: "query routes",
+			test: testQueryRoutes,
+		},
+	*/
 }
 
 // TestLightningNetworkDaemon performs a series of integration tests amongst a
