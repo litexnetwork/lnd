@@ -6,6 +6,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+	"strings"
 
 	"crypto/sha256"
 
@@ -22,7 +23,10 @@ import (
 	"io/ioutil"
 	"encoding/json"
 	"encoding/base64"
+	"github.com/roasbeef/btcutil"
+        "path/filepath"
 )
+
 
 const (
 	// expiryGraceDelta is a grace period that the timeout of incoming
@@ -2195,11 +2199,16 @@ func (l *channelLink) processRemoteAdds(fwdPkg *channeldb.FwdPkg,
 			// If this invoice type is cross-chain, so we need to
 			// notify the Raiden deamon that this invoiced was settled.
 			if invoice.Type == channeldb.CROSS_CHAIN_INVOICE {
-				b, err := ioutil.ReadFile("raidenconfig")
+
+				raidenconfigPath := filepath.Join(btcutil.AppDataDir("lnd", false), "raidenconfig")
+				log.Infof("raiden config path: %v", raidenconfigPath)
+
+				b, err := ioutil.ReadFile(raidenconfigPath)
 				if err != nil {
 					b = []byte("http://127.0.0.1:5001")
 				}
-				raidenUrl := string(b) + "/api/1/crosstransactionr"
+				raidenUrl := strings.TrimSuffix(string(b), "\n")+ "/api/1/crosstransactionr"
+				log.Infof("cross-chain raiden url : %v", raidenUrl)
 				rHash := sha256.Sum256(preimage[:])
 
 				jsonStr := make(map[string]interface{})
