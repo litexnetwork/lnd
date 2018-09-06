@@ -12,20 +12,27 @@ import (
 type RouterID [33]byte
 
 type HulaRouter struct {
-	SelfNode RouterID
 
-	Address []net.Addr
+	SelfNode         RouterID
 
-	Neighbours map[RouterID]struct{}
+	Address          []net.Addr
+
+	Neighbours       map[RouterID]struct{}
 
 	ProbeUpdateTable map[RouterID]int64
 
 	BestHopTable     map[RouterID]*HopTableEntry
+
 	SendToPeer       func(target *btcec.PublicKey, msgs ...lnwire.Message) error
+
 	ConnectToPeer    func(addr *lnwire.NetAddress, perm bool) error
+
 	DisconnectPeer   func(pubKey *btcec.PublicKey) error
+
 	FindPeerByPubStr func(pubStr string) bool
+
 	DB               *channeldb.DB
+
 	timer            *time.Ticker
 
 	wg sync.WaitGroup
@@ -43,10 +50,31 @@ type HopTableEntry struct {
 	updated bool
 }
 
-func start() {
+func (r *HulaRouter) start() {
 
 }
 
-func stop() {
+func (r *HulaRouter) stop() {
 
 }
+
+func (r *HulaRouter) findPath() {
+
+}
+
+func (r *HulaRouter) handleProbe () {
+
+}
+
+func (r *HulaRouter) handleRequest () {
+
+}
+
+func (r *HulaRouter) handleResponse () {
+
+}
+
+func newHulaRouter() *HulaRouter {
+	return  nil
+}
+
