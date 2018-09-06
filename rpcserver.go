@@ -795,6 +795,15 @@ func (r *rpcServer) OpenChannel(in *lnrpc.OpenChannelRequest,
 		return fmt.Errorf("cannot open channel to self")
 	}
 
+	isExistWithPeer, err := r.checkChannelExistWithPeer(nodePubKey)
+	if err != nil {
+		return err
+	}
+
+	if isExistWithPeer {
+		return errors.New("there is a channel existing with this peer")
+	}
+
 	nodePubKeyBytes = nodePubKey.SerializeCompressed()
 
 	// Based on the passed fee related parameters, we'll determine an
@@ -907,6 +916,15 @@ func (r *rpcServer) OpenChannelSync(ctx context.Context,
 		return nil, err
 	}
 
+	isExistWithPeer, err := r.checkChannelExistWithPeer(nodepubKey)
+	if err != nil {
+		return nil, err
+	}
+
+	if isExistWithPeer {
+		return nil, errors.New("there is a channel existing with this peer")
+	}
+
 	localFundingAmt := btcutil.Amount(in.LocalFundingAmount)
 	remoteInitialBalance := btcutil.Amount(in.PushSat)
 	minHtlc := lnwire.MilliSatoshi(in.MinHtlcMsat)
@@ -996,6 +1014,19 @@ func getChanPointFundingTxid(chanPoint *lnrpc.ChannelPoint) ([]byte, error) {
 	}
 
 	return txid, nil
+}
+
+func (r *rpcServer) checkChannelExistWithPeer(key *btcec.PublicKey) (bool, error) {
+	channels, err := r.server.chanDB.FetchAllChannels()
+	if err != nil {
+		return false, err
+	}
+	for _, channel := range channels {
+		if key.IsEqual(channel.IdentityPub) {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 // CloseChannel attempts to close an active channel identified by its channel

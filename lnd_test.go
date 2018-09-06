@@ -10414,11 +10414,11 @@ var testsCases = []*testCase{
 		name: "onchain fund recovery",
 		test: testOnchainFundRecovery,
 	},
-	{
+*/	{
 		name: "basic funding flow",
 		test: testBasicChannelFunding,
 	},
-	{
+/*	{
 		name: "update channel policy",
 		test: testUpdateChannelPolicy,
 	},
@@ -10446,11 +10446,11 @@ var testsCases = []*testCase{
 		name: "channel balance",
 		test: testChannelBalance,
 	},
-*/	{
+	{
 		name: "single hop invoice",
 		test: testSingleHopInvoice,
 	},
-/*	{
+	{
 		name: "sphinx replay persistence",
 		test: testSphinxReplayPersistence,
 	},
@@ -10462,11 +10462,11 @@ var testsCases = []*testCase{
 		name: "max pending channel",
 		test: testMaxPendingChannels,
 	},
-*/	{
+	{
 		name: "multi-hop payments",
 		test: testMultiHopPayments,
 	},
-/*	{
+	{
 		name: "private channels",
 		test: testPrivateChannels,
 	},
