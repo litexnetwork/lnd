@@ -22,6 +22,7 @@ import (
 	"github.com/lightningnetwork/lnd/routing"
 	"github.com/roasbeef/btcd/connmgr"
 	"github.com/lightningnetwork/lnd/routing/RIP"
+	"github.com/lightningnetwork/lnd/routing/hula"
 )
 
 // logWriter implements an io.Writer that outputs to both standard output and
@@ -76,6 +77,7 @@ var (
 	cnctLog = backendLog.Logger("CNCT")
 	sphxLog = backendLog.Logger("SPHX")
 	ripnLog = backendLog.Logger("RIPN")
+	hulaLog = backendLog.Logger("HUlA")
 )
 
 // Initialize package-global logger variables.
@@ -92,6 +94,7 @@ func init() {
 	contractcourt.UseLogger(cnctLog)
 	sphinx.UseLogger(sphxLog)
 	RIP.UseLogger(ripnLog)
+	hula.UseLogger(hulaLog)
 }
 
 // subsystemLoggers maps each subsystem identifier to its associated logger.
@@ -115,6 +118,7 @@ var subsystemLoggers = map[string]btclog.Logger{
 	"CNCT": cnctLog,
 	"SPHX": sphxLog,
 	"RIPN": ripnLog,
+	"HULA": hulaLog,
 }
 
 // initLogRotator initializes the logging rotator to write logs to logFile and
