@@ -77,7 +77,6 @@ const (
 	// CloseBreach indicates that a channel breach has been detected, and
 	// the link should immediately be marked as unavailable.
 	CloseBreach
-
 )
 
 // ChanClose represents a request which close a particular channel specified by

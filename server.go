@@ -28,12 +28,12 @@ import (
 	"github.com/lightningnetwork/lnd/lnwallet"
 	"github.com/lightningnetwork/lnd/lnwire"
 	"github.com/lightningnetwork/lnd/routing"
+	"github.com/lightningnetwork/lnd/routing/RIP"
 	"github.com/roasbeef/btcd/btcec"
 	"github.com/roasbeef/btcd/chaincfg/chainhash"
 	"github.com/roasbeef/btcd/connmgr"
 	"github.com/roasbeef/btcd/wire"
 	"github.com/roasbeef/btcutil"
-	"github.com/lightningnetwork/lnd/routing/RIP"
 )
 
 var (
@@ -2058,7 +2058,7 @@ func (s *server) RebalanceChannel(channelID lnwire.ChannelID,
 
 func (s *server) SpliceOut(channelID lnwire.ChannelID,
 	extractAmt btcutil.Amount, feePerVSize lnwallet.SatPerVByte,
-	private bool, ) (chan *lnrpc.OpenStatusUpdate, chan error)  {
+	private bool) (chan *lnrpc.OpenStatusUpdate, chan error) {
 
 	updateChan := make(chan *lnrpc.OpenStatusUpdate, 1)
 	errChan := make(chan error, 1)
@@ -2109,7 +2109,7 @@ func (s *server) SpliceOut(channelID lnwire.ChannelID,
 		minHtlc:            dbChan.LocalChanCfg.MinHTLC,
 		remoteCsvDelay:     dbChan.LocalChanCfg.CsvDelay,
 		openType:           lnwire.OpenSpliceOutChannel,
-		localExtractAmt:	extractAmt,
+		localExtractAmt:    extractAmt,
 		oldChannelID:       channelID,
 		updates:            updateChan,
 		err:                errChan,
@@ -2119,7 +2119,6 @@ func (s *server) SpliceOut(channelID lnwire.ChannelID,
 
 	return nil, nil
 }
-
 
 // OpenChannel sends a request to the server to open a channel to the specified
 // peer identified by nodeKey with the passed channel funding parameters.

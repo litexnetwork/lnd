@@ -49,12 +49,12 @@ const (
 	MsgNodeAnnouncement                    = 257
 	MsgChannelUpdate                       = 258
 	MsgAnnounceSignatures                  = 259
-	MsgRIPUpdate						   = 512
-	MsgRIPRequest						   = 513
-	MsgRIPResponse						   = 514
-	MsgHULAProbe						   = 515
-	MsgHULARequest						   = 516
-	MsgHULAResponse						   = 517
+	MsgRIPUpdate                           = 512
+	MsgRIPRequest                          = 513
+	MsgRIPResponse                         = 514
+	MsgHULAProbe                           = 515
+	MsgHULARequest                         = 516
+	MsgHULAResponse                        = 517
 )
 
 // String return the string representation of message type.

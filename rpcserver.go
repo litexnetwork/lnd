@@ -27,6 +27,7 @@ import (
 	"github.com/lightningnetwork/lnd/lnwallet"
 	"github.com/lightningnetwork/lnd/lnwire"
 	"github.com/lightningnetwork/lnd/routing"
+	"github.com/lightningnetwork/lnd/routing/RIP"
 	"github.com/lightningnetwork/lnd/zpay32"
 	"github.com/roasbeef/btcd/blockchain"
 	"github.com/roasbeef/btcd/btcec"
@@ -37,7 +38,6 @@ import (
 	"github.com/roasbeef/btcwallet/waddrmgr"
 	"github.com/tv42/zbase32"
 	"golang.org/x/net/context"
-	"github.com/lightningnetwork/lnd/routing/RIP"
 )
 
 var (
@@ -2214,7 +2214,7 @@ func (r *rpcServer) SendPayment(paymentStream lnrpc.Lightning_SendPaymentServer)
 				// We find a path by RIP module, if find pass the result to
 				// payment.
 				var destForRIP [33]byte
-				copy(destForRIP[:],destNode.SerializeCompressed())
+				copy(destForRIP[:], destNode.SerializeCompressed())
 				pathChannels, pathNodes, err := r.server.ripRouter.FindPath(destForRIP)
 				if err == nil {
 					payment.PathNodes = pathNodes
@@ -2369,7 +2369,7 @@ func (r *rpcServer) SendPaymentSync(ctx context.Context,
 	// We find a path by RIP module, if find pass the result to
 	// payment.
 	var destForRIP [33]byte
-	copy(destForRIP[:],destPub.SerializeCompressed())
+	copy(destForRIP[:], destPub.SerializeCompressed())
 	pathChannels, pathNodes, err := r.server.ripRouter.FindPath(destForRIP)
 	if err == nil {
 		payment.PathNodes = pathNodes
@@ -2652,7 +2652,7 @@ func (r *rpcServer) AddInvoice(ctx context.Context,
 		Terms: channeldb.ContractTerm{
 			Value: amtMSat,
 		},
-		Type:           int32(invoice.Type),
+		Type: int32(invoice.Type),
 	}
 	copy(i.Terms.PaymentPreimage[:], paymentPreimage[:])
 

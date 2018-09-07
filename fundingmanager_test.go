@@ -907,7 +907,7 @@ func assertDatabaseState(t *testing.T, node *testNode,
 			// Got expected state, return with success.
 			return
 		}
-		fmt.Printf("%d\n",i)
+		fmt.Printf("%d\n", i)
 	}
 
 	// 10 tries without success.

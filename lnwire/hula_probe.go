@@ -8,7 +8,6 @@ import (
 // HULAProbe is the probe message which will be sent by every node periodically.
 // This message will indicate neighbors to update their HULARouter's config.
 type HULAProbe struct {
-
 	Destination [33]byte
 
 	UpperHop [33]byte
@@ -58,9 +57,5 @@ func (c *HULAProbe) MsgType() MessageType {
 // This is part of the lnwire.Message interface.
 func (c *HULAProbe) MaxPayloadLength(uint32) uint32 {
 	// 33 + 33 + 1 + 8
-	return  75
+	return 75
 }
-
-
-
-

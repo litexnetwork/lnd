@@ -666,7 +666,6 @@ var addFundCommand = cli.Command{
 	Action: actionDecorator(addFund),
 }
 
-
 func addFund(ctx *cli.Context) error {
 	ctxb := context.Background()
 	client, cleanUp := getClient(ctx)
@@ -835,7 +834,7 @@ func extractFund(ctx *cli.Context) error {
 		return nil
 	}
 
-	req := &lnrpc.ExtractFundRequest {
+	req := &lnrpc.ExtractFundRequest{
 		ChannelPoint: &lnrpc.ChannelPoint{},
 		//TargetConf:   int32(ctx.Int64("conf_target")),
 		//SatPerByte:   ctx.Int64("sat_per_byte"),
@@ -1730,9 +1729,9 @@ func walletBalance(ctx *cli.Context) error {
 var channelBalanceCommand = cli.Command{
 	Name:     "channelbalance",
 	Category: "Channels",
-	Usage:    "Returns the sum of the total available channel balance across " +
+	Usage: "Returns the sum of the total available channel balance across " +
 		"all open channels.",
-	Action:   actionDecorator(channelBalance),
+	Action: actionDecorator(channelBalance),
 }
 
 func channelBalance(ctx *cli.Context) error {
@@ -2100,7 +2099,7 @@ var addInvoiceCommand = cli.Command{
 			Usage: "the amt of satoshis in this invoice",
 		},
 		cli.StringFlag{
-			Name: "type",
+			Name:  "type",
 			Usage: "indicate this invoices is normal or cross-chain",
 		},
 		cli.StringFlag{
@@ -2200,7 +2199,7 @@ func addInvoice(ctx *cli.Context) error {
 		FallbackAddr:    ctx.String("fallback_addr"),
 		Expiry:          ctx.Int64("expiry"),
 		Private:         ctx.Bool("private"),
-		Type:			 invType,
+		Type:            invType,
 	}
 
 	resp, err := client.AddInvoice(context.Background(), invoice)
@@ -2697,7 +2696,7 @@ func queryRoutes(ctx *cli.Context) error {
 var getNetworkInfoCommand = cli.Command{
 	Name:     "getnetworkinfo",
 	Category: "Channels",
-	Usage:    "Get statistical information about the current " +
+	Usage: "Get statistical information about the current " +
 		"state of the network.",
 	Description: "Returns a set of statistics pertaining to the known " +
 		"channel graph",
@@ -2980,9 +2979,9 @@ func feeReport(ctx *cli.Context) error {
 }
 
 var updateChannelPolicyCommand = cli.Command{
-	Name:      "updatechanpolicy",
-	Category:  "Channels",
-	Usage:     "Update the channel policy for all channels, or a single " +
+	Name:     "updatechanpolicy",
+	Category: "Channels",
+	Usage: "Update the channel policy for all channels, or a single " +
 		"channel.",
 	ArgsUsage: "base_fee_msat fee_rate time_lock_delta [channel_point]",
 	Description: `

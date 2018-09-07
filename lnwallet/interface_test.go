@@ -333,7 +333,7 @@ func testDualFundingReservationWorkflow(miner *rpctest.Harness,
 	// receives' Alice's contribution, and consumes that so we can continue
 	// the funding process.
 	bobChanReservation, err := bob.InitChannelReservation(fundingAmount*2,
-		fundingAmount, 0,0, lnwire.OpenNewChannel,
+		fundingAmount, 0, 0, lnwire.OpenNewChannel,
 		oldChannelID, 0, feePerKw, feeRate, alicePub, aliceAddr,
 		chainHash, lnwire.FFAnnounceChannel)
 	if err != nil {
@@ -501,7 +501,7 @@ func testFundingTransactionLockedOutputs(miner *rpctest.Harness,
 		t.Fatalf("unable to create amt: %v", err)
 	}
 	failedReservation, err := alice.InitChannelReservation(
-		amt, amt, 0, 0,lnwire.OpenNewChannel,
+		amt, amt, 0, 0, lnwire.OpenNewChannel,
 		oldChannelID, 0, feePerKw, feeRate, bobPub, bobAddr,
 		chainHash, lnwire.FFAnnounceChannel)
 	if err == nil {
@@ -533,14 +533,14 @@ func testFundingCancellationNotEnoughFunds(miner *rpctest.Harness,
 	chanReservation, err := alice.InitChannelReservation(fundingAmount,
 		fundingAmount, 0, 0, lnwire.OpenNewChannel,
 		oldChannelID, 0, feePerKw, feeRate, bobPub, bobAddr,
-		chainHash,lnwire.FFAnnounceChannel)
+		chainHash, lnwire.FFAnnounceChannel)
 	if err != nil {
 		t.Fatalf("unable to initialize funding reservation: %v", err)
 	}
 
 	// Attempt to create another channel with 44 BTC, this should fail.
 	_, err = alice.InitChannelReservation(fundingAmount,
-		fundingAmount, 0,0,  lnwire.OpenNewChannel,
+		fundingAmount, 0, 0, lnwire.OpenNewChannel,
 		oldChannelID, 0, feePerKw, feeRate, bobPub, bobAddr, chainHash,
 		lnwire.FFAnnounceChannel,
 	)
@@ -573,7 +573,7 @@ func testFundingCancellationNotEnoughFunds(miner *rpctest.Harness,
 
 	// Request to fund a new channel should now succeed.
 	_, err = alice.InitChannelReservation(fundingAmount, fundingAmount,
-		0,0, lnwire.OpenNewChannel, oldChannelID, 0,
+		0, 0, lnwire.OpenNewChannel, oldChannelID, 0,
 		feePerKw, feeRate, bobPub, bobAddr, chainHash, lnwire.FFAnnounceChannel)
 	if err != nil {
 		t.Fatalf("unable to initialize funding reservation: %v", err)
@@ -618,7 +618,7 @@ func testReservationInitiatorBalanceBelowDustCancel(miner *rpctest.Harness,
 	feePerKw := feePerVSize.FeePerKWeight()
 	var oldChannelID lnwire.ChannelID
 	_, err = alice.InitChannelReservation(
-		fundingAmount, fundingAmount,0,  0, lnwire.OpenNewChannel,
+		fundingAmount, fundingAmount, 0, 0, lnwire.OpenNewChannel,
 		oldChannelID, 0, feePerKw, feePerVSize, bobPub,
 		bobAddr, chainHash, lnwire.FFAnnounceChannel,
 	)
@@ -797,7 +797,7 @@ func testSingleFunderReservationWorkflow(miner *rpctest.Harness,
 	// transaction, as well as the funding outpoint.
 	fundingPoint := aliceChanReservation.FundingOutpoint()
 	_, err = bobChanReservation.CompleteReservationSingle(
-		fundingPoint, aliceCommitSig, nil,nil,
+		fundingPoint, aliceCommitSig, nil, nil,
 		oldChannelID, lnwire.OpenNewChannel,
 	)
 	if err != nil {

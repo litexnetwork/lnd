@@ -40,5 +40,3 @@ func (c logClosure) String() string {
 func newLogClosure(c func() string) logClosure {
 	return logClosure(c)
 }
-
-

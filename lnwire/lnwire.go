@@ -230,7 +230,7 @@ func writeElement(w io.Writer, element interface{}) error {
 			return err
 		}
 	case [][33]byte:
-		var b[2]byte
+		var b [2]byte
 		numBytes := uint16(len(e))
 		binary.BigEndian.PutUint16(b[:], numBytes)
 		if _, err := w.Write(b[:]); err != nil {
@@ -287,8 +287,8 @@ func writeElement(w io.Writer, element interface{}) error {
 	case []wire.OutPoint:
 		var l [2]byte
 		binary.BigEndian.PutUint16(l[:], uint16(len(e)))
-		if _,err := w.Write(l[:]); err != nil {
-			return  err
+		if _, err := w.Write(l[:]); err != nil {
+			return err
 		}
 		for _, outPoint := range e {
 			if err := writeElement(w, outPoint); err != nil {
@@ -613,7 +613,7 @@ func readElement(r io.Reader, element interface{}) error {
 		var keys [][33]byte
 		if numBytes > 0 {
 			keys = make([][33]byte, numBytes)
-			for i :=0; i < int(numBytes); i++ {
+			for i := 0; i < int(numBytes); i++ {
 				if err := readElement(r, &keys[i]); err != nil {
 					return err
 				}
@@ -720,7 +720,7 @@ func readElement(r io.Reader, element interface{}) error {
 			TxPosition:  binary.BigEndian.Uint16(txPosition[:]),
 		}
 	case *[]ShortChannelID:
-			var l [2]byte
+		var l [2]byte
 		if _, err := io.ReadFull(r, l[:]); err != nil {
 			return err
 		}

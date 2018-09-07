@@ -521,7 +521,7 @@ func (l *LightningWallet) handleFundingReserveRequest(req *initFundingReserveMsg
 				req.resp <- nil
 				return
 			}
-		} else if req.openType == lnwire.OpenSpliceOutChannel{
+		} else if req.openType == lnwire.OpenSpliceOutChannel {
 			var weightEstimate TxWeightEstimator
 			// weight of old fundingTx vin
 			weightEstimate.AddNestedP2WSHInput(WitnessSize)
@@ -533,7 +533,7 @@ func (l *LightningWallet) handleFundingReserveRequest(req *initFundingReserveMsg
 			feeRate := req.fundingFeePerVSize
 			requiredFee := feeRate.FeeForVSize(int64(weightEstimate.VSize()))
 			finalExtractAmout := req.extractAmount - requiredFee
-			if  requiredFee < req.extractAmount && finalExtractAmout > DefaultDustLimit() {
+			if requiredFee < req.extractAmount && finalExtractAmout > DefaultDustLimit() {
 				changeAddr, err := l.NewAddress(WitnessPubKey, true)
 				if err != nil {
 					req.err <- err
@@ -552,7 +552,7 @@ func (l *LightningWallet) handleFundingReserveRequest(req *initFundingReserveMsg
 					PkScript: changeScript,
 				}
 			} else {
-				req.err <- fmt.Errorf("the fee required: %d is more than the " +
+				req.err <- fmt.Errorf("the fee required: %d is more than the "+
 					"amount to be extract: %d", requiredFee, req.extractAmount)
 				req.resp <- nil
 				return

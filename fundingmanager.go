@@ -23,11 +23,11 @@ import (
 	"github.com/lightningnetwork/lnd/lnwallet"
 	"github.com/lightningnetwork/lnd/lnwire"
 	"github.com/lightningnetwork/lnd/routing"
+	"github.com/lightningnetwork/lnd/routing/RIP"
 	"github.com/roasbeef/btcd/btcec"
 	"github.com/roasbeef/btcd/chaincfg/chainhash"
 	"github.com/roasbeef/btcd/wire"
 	"github.com/roasbeef/btcutil"
-	"github.com/lightningnetwork/lnd/routing/RIP"
 )
 
 const (
@@ -1005,7 +1005,7 @@ func (f *fundingManager) handleFundingOpen(fmsg *fundingOpenMsg) {
 	chainHash := chainhash.Hash(msg.ChainHash)
 
 	reservation, err := f.cfg.Wallet.InitChannelReservation(
-		amt, 0, 0, 0,msg.Opentype, msg.OldChannelID, msg.PushAmount,
+		amt, 0, 0, 0, msg.Opentype, msg.OldChannelID, msg.PushAmount,
 		lnwallet.SatPerKWeight(msg.FeePerKiloWeight), 0,
 		fmsg.peerAddress.IdentityKey, fmsg.peerAddress.Address,
 		&chainHash, msg.ChannelFlags,
@@ -1292,15 +1292,15 @@ func (f *fundingManager) handleFundingAccept(fmsg *fundingAcceptMsg) {
 	// the fundingCreated object.
 	if resCtx.openType == lnwire.OpenSpliceOutChannel {
 		fundingCreated = &lnwire.FundingCreated{
-		PendingChannelID: pendingChanID,
-		FundingPoint:     *outPoint,
-		ExtractOutputValue: resCtx.reservation.OurContribution().
-			ExtractOutputs[0].Value,
-		ExtractOutputScript: resCtx.reservation.OurContribution().
-			ExtractOutputs[0].PkScript,
+			PendingChannelID: pendingChanID,
+			FundingPoint:     *outPoint,
+			ExtractOutputValue: resCtx.reservation.OurContribution().
+				ExtractOutputs[0].Value,
+			ExtractOutputScript: resCtx.reservation.OurContribution().
+				ExtractOutputs[0].PkScript,
 		}
 	} else {
-	// If not, their is changeOutput we need to add to the fundingCreated.
+		// If not, their is changeOutput we need to add to the fundingCreated.
 		fundingCreated = &lnwire.FundingCreated{
 			PendingChannelID: pendingChanID,
 			FundingPoint:     *outPoint,
@@ -1375,8 +1375,8 @@ func (f *fundingManager) handleFundingCreated(fmsg *fundingCreatedMsg) {
 		PkScript: fmsg.msg.ChangeOutputScript,
 	}
 	extractOuput := &wire.TxOut{
-		Value: 	fmsg.msg.ExtractOutputValue,
-		PkScript:fmsg.msg.ExtractOutputScript,
+		Value:    fmsg.msg.ExtractOutputValue,
+		PkScript: fmsg.msg.ExtractOutputScript,
 	}
 	completeChan, err := resCtx.reservation.CompleteReservationSingle(
 		&fundingOut, commitSig, extractOuput, changeOutput,
@@ -1951,8 +1951,8 @@ func (f *fundingManager) waitForFundingConfirmation(completeChan *channeldb.Open
 	// and that it is acceptable to process funding locked messages
 	// from the peer.
 	f.localDiscoveryMtx.Lock()
-//	state, _, _ := f.getChannelOpeningState(&completeChan.FundingOutpoint)
-//	fmt.Printf("%v", state)
+	//	state, _, _ := f.getChannelOpeningState(&completeChan.FundingOutpoint)
+	//	fmt.Printf("%v", state)
 	if discoverySignal, ok := f.localDiscoverySignals[chanID]; ok {
 		close(discoverySignal)
 	}
@@ -2600,17 +2600,17 @@ func (f *fundingManager) initFundingWorkflow(peerAddress *lnwire.NetAddress,
 // funding workflow.
 func (f *fundingManager) handleInitFundingMsg(msg *initFundingMsg) {
 	var (
-		peerKey        = msg.peerAddress.IdentityKey
-		localAmt       = msg.localFundingAmt
-		localAddAmt    = msg.localAddAmt
-		localExtractAmt= msg.localExtractAmt
-		openType       = msg.openType
-		oldChannelId   = msg.oldChannelID
-		remoteAmt      = msg.remoteFundingAmt
-		capacity       = localAmt + remoteAmt
-		ourDustLimit   = lnwallet.DefaultDustLimit()
-		minHtlc        = msg.minHtlc
-		remoteCsvDelay = msg.remoteCsvDelay
+		peerKey         = msg.peerAddress.IdentityKey
+		localAmt        = msg.localFundingAmt
+		localAddAmt     = msg.localAddAmt
+		localExtractAmt = msg.localExtractAmt
+		openType        = msg.openType
+		oldChannelId    = msg.oldChannelID
+		remoteAmt       = msg.remoteFundingAmt
+		capacity        = localAmt + remoteAmt
+		ourDustLimit    = lnwallet.DefaultDustLimit()
+		minHtlc         = msg.minHtlc
+		remoteCsvDelay  = msg.remoteCsvDelay
 	)
 
 	fndgLog.Infof("Initiating fundingRequest(localAmt=%v, remoteAmt=%v, "+
@@ -2644,7 +2644,7 @@ func (f *fundingManager) handleInitFundingMsg(msg *initFundingMsg) {
 	// wallet doesn't have enough funds to commit to this channel, then the
 	// request will fail, and be aborted.
 	reservation, err := f.cfg.Wallet.InitChannelReservation(
-		capacity, localAmt, localAddAmt, localExtractAmt,openType,
+		capacity, localAmt, localAddAmt, localExtractAmt, openType,
 		msg.oldChannelID, msg.pushAmt, commitFeePerKw, msg.fundingFeePerVSize,
 		peerKey, msg.peerAddress.Address, &msg.chainHash, channelFlags,
 	)

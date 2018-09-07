@@ -591,15 +591,15 @@ func TestLightningWireProtocol(t *testing.T) {
 		MsgRIPRequest: func(v []reflect.Value, r *rand.Rand) {
 			var err error
 			req := RIPRequest{
-				RequestAmount:  btcutil.Amount(r.Int63()),
-				Addresses: testAddrs,
-				PathChannels: []wire.OutPoint{*outpoint1},
+				RequestAmount: btcutil.Amount(r.Int63()),
+				Addresses:     testAddrs,
+				PathChannels:  []wire.OutPoint{*outpoint1},
 			}
 			req.SourceNodeID, err = randRawKey()
 			if err != nil {
 				t.Fatalf("unable to gen raw key")
 			}
-			node1, _:= randRawKey()
+			node1, _ := randRawKey()
 			req.PathNodes = [][33]byte{node1}[:]
 			req.DestNodeID = node1
 			req.RequestID = node1
@@ -607,12 +607,12 @@ func TestLightningWireProtocol(t *testing.T) {
 			v[0] = reflect.ValueOf(req)
 		},
 		MsgRIPResponse: func(v []reflect.Value, r *rand.Rand) {
-			node1, _:= randRawKey()
+			node1, _ := randRawKey()
 			req := RIPResponse{
-				RequestID: node1,
-				Success: 1,
+				RequestID:    node1,
+				Success:      1,
 				PathChannels: []wire.OutPoint{*outpoint1},
-				PathNodes: [][33]byte{node1}[:],
+				PathNodes:    [][33]byte{node1}[:],
 			}
 
 			v[0] = reflect.ValueOf(req)
