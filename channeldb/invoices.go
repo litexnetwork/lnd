@@ -52,9 +52,8 @@ const (
 	MaxPaymentRequestSize = 4096
 )
 
-
 const (
-	NORMAL_INVOICE  int32 =  iota
+	NORMAL_INVOICE int32 = iota
 	CROSS_CHAIN_INVOICE
 )
 
@@ -119,7 +118,7 @@ type Invoice struct {
 
 	// Type indicates this invoice is a normal invoice
 	// or a cross-chain invoice
-	Type	int32
+	Type int32
 }
 
 func validateInvoice(i *Invoice) error {

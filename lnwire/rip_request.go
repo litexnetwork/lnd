@@ -1,10 +1,10 @@
 package lnwire
 
 import (
-	"net"
-	"io"
 	"github.com/roasbeef/btcd/wire"
 	"github.com/roasbeef/btcutil"
+	"io"
+	"net"
 )
 
 type RIPRequest struct {

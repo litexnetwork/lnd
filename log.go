@@ -20,9 +20,9 @@ import (
 	"github.com/lightningnetwork/lnd/htlcswitch"
 	"github.com/lightningnetwork/lnd/lnwallet"
 	"github.com/lightningnetwork/lnd/routing"
-	"github.com/roasbeef/btcd/connmgr"
 	"github.com/lightningnetwork/lnd/routing/RIP"
 	"github.com/lightningnetwork/lnd/routing/hula"
+	"github.com/roasbeef/btcd/connmgr"
 )
 
 // logWriter implements an io.Writer that outputs to both standard output and

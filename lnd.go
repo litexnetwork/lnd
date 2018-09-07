@@ -43,12 +43,12 @@ import (
 	"github.com/lightningnetwork/lnd/lnwallet/btcwallet"
 	"github.com/lightningnetwork/lnd/lnwire"
 	"github.com/lightningnetwork/lnd/macaroons"
+	"github.com/lightningnetwork/lnd/routing/RIP"
 	"github.com/lightningnetwork/lnd/walletunlocker"
 	"github.com/roasbeef/btcd/btcec"
 	"github.com/roasbeef/btcd/wire"
 	"github.com/roasbeef/btcutil"
 	"github.com/roasbeef/btcwallet/wallet"
-	"github.com/lightningnetwork/lnd/routing/RIP"
 )
 
 const (
@@ -463,7 +463,7 @@ func lndMain() error {
 		},
 		UpdateRipRouter: func(changeType int, peerKey [33]byte) {
 			linkChange := &RIP.LinkChange{
-				ChangeType: changeType,
+				ChangeType:  changeType,
 				NeighbourID: peerKey,
 			}
 			server.ripRouter.LinkChangeChan <- linkChange
@@ -514,7 +514,7 @@ func lndMain() error {
 	// We add the rip router
 	var selfNodeKey [33]byte
 	copy(selfNodeKey[:], server.identityPriv.PubKey().SerializeCompressed())
-	server.ripRouter = RIP.NewRIPRouter(server.chanDB, selfNodeKey,server.currentNodeAnn.Addresses)
+	server.ripRouter = RIP.NewRIPRouter(server.chanDB, selfNodeKey, server.currentNodeAnn.Addresses)
 	server.ripRouter.SendToPeer = server.SendToPeer
 	server.ripRouter.ConnectToPeer = server.ConnectToPeer
 	server.ripRouter.DisconnectPeer = server.DisconnectPeer
@@ -715,7 +715,7 @@ func genCertPair(certFile, keyFile string) error {
 
 	// Collect the host's IP addresses, including loopback, in a slice.
 	ipAddresses := []net.IP{net.ParseIP("127.0.0.1"), net.ParseIP("::1"),
-	net.ParseIP("0.0.0.0")}
+		net.ParseIP("0.0.0.0")}
 
 	// addIP appends an IP address only if it isn't already in the slice.
 	addIP := func(ipAddr net.IP) {

@@ -1635,18 +1635,18 @@ func (r *ChannelRouter) SendPayment(payment *LightningPayment) ([32]byte, *Route
 				len(pathChannels) == 0 ||
 				len(pathNodes) == 0 {
 				log.Tracef("Attempting to route with rip failed " +
-				"because the number of channels and nodes don't match, or the " +
+					"because the number of channels and nodes don't match, or the " +
 					"number of path is zero")
 				continue
 			}
 
 			// Now, we begin to create the path.
-			channelHops := make([]*ChannelHop,0)
+			channelHops := make([]*ChannelHop, 0)
 			length := len(pathChannels)
 			for i, channel := range pathChannels {
 				if i < length {
-					edgeInfo, p1,p2, err := r.cfg.Graph.FetchChannelEdgesByOutpoint(&channel)
-					if err != nil && edgeInfo != nil{
+					edgeInfo, p1, p2, err := r.cfg.Graph.FetchChannelEdgesByOutpoint(&channel)
+					if err != nil && edgeInfo != nil {
 						log.Tracef("can't fetch the channel info of %v", channel)
 					}
 					channelHop := &ChannelHop{

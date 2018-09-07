@@ -1,12 +1,11 @@
 package lnwire
 
 import (
-	"io"
 	"github.com/roasbeef/btcd/wire"
+	"io"
 )
 
 type RIPResponse struct {
-
 	RequestID [33]byte
 
 	PathChannels []wire.OutPoint
@@ -56,5 +55,3 @@ func (a *RIPResponse) MsgType() MessageType {
 func (a *RIPResponse) MaxPayloadLength(pver uint32) uint32 {
 	return 65533
 }
-
-

@@ -9,6 +9,8 @@ import (
 
 	"crypto/sha256"
 
+	"encoding/base64"
+	"encoding/json"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/go-errors/errors"
 	"github.com/lightningnetwork/lnd/chainntnfs"
@@ -18,10 +20,8 @@ import (
 	"github.com/lightningnetwork/lnd/lnwallet"
 	"github.com/lightningnetwork/lnd/lnwire"
 	"github.com/roasbeef/btcd/chaincfg/chainhash"
-	"net/http"
 	"io/ioutil"
-	"encoding/json"
-	"encoding/base64"
+	"net/http"
 )
 
 const (
@@ -2206,7 +2206,7 @@ func (l *channelLink) processRemoteAdds(fwdPkg *channeldb.FwdPkg,
 				jsonStr["hashr"] = base64.StdEncoding.EncodeToString(rHash[:])
 				bytesData, err := json.Marshal(jsonStr)
 				if err != nil {
-					fmt.Println(err.Error() )
+					fmt.Println(err.Error())
 					l.fail("unable to parse the rhash")
 				}
 				reader := bytes.NewReader(bytesData)
@@ -2219,7 +2219,7 @@ func (l *channelLink) processRemoteAdds(fwdPkg *channeldb.FwdPkg,
 				if err != nil {
 					l.fail("cann't handle the Raiden response : %v", err)
 				}
-				log.Infof("recieved response from raiden: %v",  string(body))
+				log.Infof("recieved response from raiden: %v", string(body))
 				resp.Body.Close()
 			}
 

@@ -11,13 +11,13 @@ type RIPUpdate struct {
 	Destination [33]byte
 
 	// NextHop is the next node of a HTLC path
-	NextHop		[33]byte
+	NextHop [33]byte
 
 	// LinkChan is the channel used for HTLC
-	LinkChan	ChannelID
+	LinkChan ChannelID
 
 	// Distance means how many hops the path is
-	Distance	uint8
+	Distance uint8
 }
 
 var _ Message = (*RIPUpdate)(nil)
@@ -62,12 +62,5 @@ func (c *RIPUpdate) MsgType() MessageType {
 // This is part of the lnwire.Message interface.
 func (c *RIPUpdate) MaxPayloadLength(uint32) uint32 {
 	// 33 + 33 + 32 + 1
-	return  99
+	return 99
 }
-
-
-
-
-
-
-

@@ -496,15 +496,15 @@ func (r *ChannelReservation) CompleteReservationSingle(
 	completeChan := make(chan *channeldb.OpenChannel, 1)
 
 	r.wallet.msgChan <- &addSingleFunderSigsMsg{
-		pendingFundingID:   r.reservationID,
-		fundingOutpoint:    fundingPoint,
-		theirCommitmentSig: commitSig,
-		oldChannelID:       oldChannelID,
-		remoteChangeOutPut: remoteChangeOutput,
-		remoteExtractOutPut:remoteExtractOutput,
-		openType:           openType,
-		completeChan:       completeChan,
-		err:                errChan,
+		pendingFundingID:    r.reservationID,
+		fundingOutpoint:     fundingPoint,
+		theirCommitmentSig:  commitSig,
+		oldChannelID:        oldChannelID,
+		remoteChangeOutPut:  remoteChangeOutput,
+		remoteExtractOutPut: remoteExtractOutput,
+		openType:            openType,
+		completeChan:        completeChan,
+		err:                 errChan,
 	}
 
 	return <-completeChan, <-errChan

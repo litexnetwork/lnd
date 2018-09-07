@@ -789,13 +789,12 @@ func (n *NetworkHarness) OpenPendingChannel(ctx context.Context,
 	}
 }
 
-
 // AddFun attempts to add new fund to a exist active channel between srcNode
 // and destNode. If the passwd context has a timeout, then if the timeout is
 // reached before the channel pending notification is received, an error is returned.
 func (n *NetworkHarness) AddFund(ctx context.Context,
 	srcNode, destNode *HarnessNode, addAmt btcutil.Amount,
-	cp *lnrpc.ChannelPoint) (lnrpc.Lightning_AddFundClient, error){
+	cp *lnrpc.ChannelPoint) (lnrpc.Lightning_AddFundClient, error) {
 
 	// Create a channel outpoint that we can use to compare to channels
 	// from the ListChannelsResponse.
@@ -811,7 +810,6 @@ func (n *NetworkHarness) AddFund(ctx context.Context,
 		Hash:  *fundingTxID,
 		Index: cp.OutputIndex,
 	}
-
 
 	timeout := time.Second * 15
 	listReq := &lnrpc.ListChannelsRequest{}
@@ -869,7 +867,7 @@ func (n *NetworkHarness) AddFund(ctx context.Context,
 	}
 
 	addFundReq := &lnrpc.AddFundRequest{
-		ChannelPoint:cp,
+		ChannelPoint:     cp,
 		AddFundingAmount: int64(addAmt),
 	}
 
@@ -878,7 +876,6 @@ func (n *NetworkHarness) AddFund(ctx context.Context,
 		return nil, fmt.Errorf("unable to add fund to channel between "+
 			"alice and bob: %v", err)
 	}
-
 
 	chanOpen := make(chan struct{})
 	errChan := make(chan error)
@@ -917,7 +914,7 @@ func (n *NetworkHarness) AddFund(ctx context.Context,
 // reached before the channel pending notification is received, an error is returned.
 func (n *NetworkHarness) ExtractFund(ctx context.Context,
 	srcNode, destNode *HarnessNode, extractAmt btcutil.Amount,
-	cp *lnrpc.ChannelPoint) (lnrpc.Lightning_ExtractFundClient, error){
+	cp *lnrpc.ChannelPoint) (lnrpc.Lightning_ExtractFundClient, error) {
 
 	// Create a channel outpoint that we can use to compare to channels
 	// from the ListChannelsResponse.
@@ -988,7 +985,7 @@ func (n *NetworkHarness) ExtractFund(ctx context.Context,
 	}
 
 	extractFundReq := &lnrpc.ExtractFundRequest{
-		ChannelPoint:cp,
+		ChannelPoint:         cp,
 		ExtractFundingAmount: int64(extractAmt),
 	}
 	extractRespStream, err := srcNode.ExtractFund(ctx, extractFundReq)
