@@ -902,6 +902,13 @@ out:
 		case *lnwire.RIPRequest:
 			p.server.ripRouter.ProcessRIPRequestMsg(msg, p.addr)
 
+		case *lnwire.HULAProbe:
+			p.server.hulaRouter.ProcessHULAUpdateMsg(msg, p.addr)
+		case *lnwire.HULARequest:
+			p.server.hulaRouter.ProcessHULARequestMsg(msg, p.addr)
+		case *lnwire.HULAResponse:
+			p.server.hulaRouter.ProcessHULAResponseMsg(msg, p.addr)
+
 		default:
 			peerLog.Errorf("unknown message %v received from peer "+
 				"%v", uint16(msg.MsgType()), p)

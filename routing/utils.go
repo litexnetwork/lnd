@@ -6,6 +6,7 @@ import (
 	"time"
 	"crypto/md5"
 	"encoding/hex"
+	"strconv"
 )
 
 func IfKeyEqual(a, b[33]byte)  bool{
@@ -20,8 +21,8 @@ func MinAmount(a, b btcutil.Amount) btcutil.Amount {
 	}
 }
 
-func GenRequestID() string {
-	str := MD5(time.Now().String())
+func GenRequestID(s string) string {
+	str := MD5(strconv.FormatInt(time.Now().UnixNano(),10) + s)
 	return "0" + str
 }
 
