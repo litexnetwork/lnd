@@ -81,6 +81,8 @@ func (r *HulaRouter) start() {
 
 	for {
 		select {
+		case linkChange := <- r.LinkChangeBuff:
+			r.handleLinkChange(linkChange)
 		case probe := <-r.ProbeBuffer:
 			r.handleProbe(probe)
 		case request := <-r.RequestBuffer:
@@ -110,7 +112,7 @@ func (r *HulaRouter) FindPath(dest [33]byte, amt btcutil.Amount) (
 		Addresses:r.Address,
 		DestNodeID: dest,
 	}
-	requestID := []byte(routing.GenRequestID())
+	requestID := []byte(routing.GenRequestID(string(r.SelfNode[:])))
 	copy(hulaRequest.RequestID[:], requestID)
 	hulaLog.Infof("new hualRequest is :%v", hulaRequest)
 
@@ -123,7 +125,7 @@ func (r *HulaRouter) FindPath(dest [33]byte, amt btcutil.Amount) (
 	if err != nil {
 		return nil, nil, err
 	}
-	hulaLog.Infof("send the ripReqest: %v to nextHop: %v\n", hulaRequest, nextNodeKye)
+	hulaLog.Infof("send the hulaReqest: %v to nextHop: %v\n", hulaRequest, nextNodeKye)
 	err = r.SendToPeer(nextNodeKye, hulaRequest)
 	if err != nil {
 		return nil, nil, err
@@ -142,6 +144,34 @@ func (r *HulaRouter) FindPath(dest [33]byte, amt btcutil.Amount) (
 		return nil, nil, fmt.Errorf("timeout for the routing path\n")
 	}
 	return nil, nil, nil
+}
+
+func (r *HulaRouter) handleLinkChange (change *LinkChange) {
+	// if this is an add type, we solve the change.
+	if change.ChangeType == 1 {
+		r.rwMu.Lock()
+		r.Neighbours[change.NeighbourID] = struct{}{}
+		r.rwMu.Unlock()
+
+	} else if change.ChangeType == 0 {
+	// if this is remove type, solve it.
+		find := false
+		dbChans, err := r.DB.FetchAllOpenChannels()
+		if err != nil {
+			hulaLog.Errorf("fetch open channels failed:%v", err)
+		}
+		for _, dbChan := range dbChans {
+			if bytes.Equal(dbChan.IdentityPub.SerializeCompressed(),
+				change.NeighbourID[:]) {
+				find = true
+			}
+		}
+		if find == false {
+			r.rwMu.Lock()
+			delete(r.Neighbours, change.NeighbourID)
+			r.rwMu.Unlock()
+		}
+	}
 }
 
 func (r *HulaRouter) handleProbe(p *HULAProbeMsg) error {

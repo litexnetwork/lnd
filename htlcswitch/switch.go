@@ -148,6 +148,8 @@ type Config struct {
 	// provide payment senders our latest policy when sending encrypted
 	// error messages.
 	FetchLastChannelUpdate func(lnwire.ShortChannelID) (*lnwire.ChannelUpdate, error)
+
+	UpdateRouterNeighbourState func(key [33]byte, changeType int)
 }
 
 // Switch is the central messaging bus for all incoming/outgoing HTLCs.
@@ -1756,7 +1758,7 @@ func (s *Switch) AddLink(link ChannelLink) error {
 			mailbox, chanID, shortChanID,
 		)
 	}
-
+	s.cfg.UpdateRouterNeighbourState(link.Peer().PubKey(), 0)
 	return nil
 }
 
@@ -1826,7 +1828,11 @@ func (s *Switch) getLinkByShortID(chanID lnwire.ShortChannelID) (ChannelLink, er
 func (s *Switch) RemoveLink(chanID lnwire.ChannelID) error {
 	s.indexMtx.Lock()
 	defer s.indexMtx.Unlock()
-
+	link, err := s.GetLink(chanID)
+	if err != nil {
+		return ErrChannelLinkNotFound
+	}
+	s.cfg.UpdateRouterNeighbourState(link.Peer().PubKey(), 1)
 	return s.removeLink(chanID)
 }
 

@@ -34,6 +34,7 @@ import (
 	"github.com/roasbeef/btcd/connmgr"
 	"github.com/roasbeef/btcd/wire"
 	"github.com/roasbeef/btcutil"
+	"github.com/lightningnetwork/lnd/routing/hula"
 )
 
 var (
@@ -117,6 +118,8 @@ type server struct {
 	chanRouter *routing.ChannelRouter
 
 	ripRouter *RIP.RIPRouter
+
+	hulaRouter *hula.HulaRouter
 
 	authGossiper *discovery.AuthenticatedGossiper
 
@@ -248,6 +251,13 @@ func newServer(listenAddrs []string, chanDB *channeldb.DB, cc *chainControl,
 		SwitchPackager:         channeldb.NewSwitchPackager(),
 		ExtractErrorEncrypter:  s.sphinx.ExtractErrorEncrypter,
 		FetchLastChannelUpdate: fetchLastChanUpdate(s, serializedPubKey),
+		UpdateRouterNeighbourState: func(key [33]byte, changeType int) {
+			linkChange := &hula.LinkChange{
+				ChangeType:  changeType,
+				NeighbourID: key,
+			}
+			s.hulaRouter.LinkChangeBuff <- linkChange
+		},
 	})
 	if err != nil {
 		return nil, err
