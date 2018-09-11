@@ -1,23 +1,26 @@
 package hula
 
 import (
+	"bytes"
+	"fmt"
 	"github.com/lightningnetwork/lnd/channeldb"
 	"github.com/lightningnetwork/lnd/lnwire"
+	"github.com/lightningnetwork/lnd/routing"
 	"github.com/roasbeef/btcd/btcec"
+	"github.com/roasbeef/btcd/wire"
+	"github.com/roasbeef/btcutil"
 	"net"
 	"sync"
 	"time"
-	"github.com/lightningnetwork/lnd/routing"
-	"github.com/roasbeef/btcutil"
-	"bytes"
-	"github.com/roasbeef/btcd/wire"
-	"fmt"
+	"math"
 )
 
 const (
 	BufferSize     = 100
 	UpdateWindow   = 1
-	ProbeSendCyble = 5
+	ProbeSendCyble = 1
+	ClearCycle     = 5
+	FindPathMmaxDelay = 5
 )
 
 type RouterID [33]byte
@@ -29,7 +32,7 @@ type HulaRouter struct {
 
 	Neighbours map[RouterID]struct{}
 
-	ProbeUpdateTable map[RouterID]int64
+	ProbeUpdateTable map[RouterID]*UpdateTableEntry
 
 	BestHopTable map[RouterID]*HopTableEntry
 
@@ -53,7 +56,9 @@ type HulaRouter struct {
 
 	DB *channeldb.DB
 
-	timer *time.Ticker
+	SendTimer *time.Ticker
+
+	ClearTimer *time.Ticker
 
 	wg sync.WaitGroup
 
@@ -74,6 +79,11 @@ type HopTableEntry struct {
 	updated bool
 }
 
+type UpdateTableEntry struct {
+	updateTime int64
+
+	receiveTime int64
+}
 // 只能以线程形式启动
 func (r *HulaRouter) start() {
 	r.wg.Add(1)
@@ -81,14 +91,24 @@ func (r *HulaRouter) start() {
 
 	for {
 		select {
-		case linkChange := <- r.LinkChangeBuff:
+		case linkChange := <-r.LinkChangeBuff:
 			r.handleLinkChange(linkChange)
+
 		case probe := <-r.ProbeBuffer:
 			r.handleProbe(probe)
+
 		case request := <-r.RequestBuffer:
 			r.handleRequest(request)
+
 		case response := <-r.ResponseBuffer:
 			r.handleResponse(response)
+
+		case <-r.ClearTimer.C:
+			r.clearEntry()
+
+		case <-r.SendTimer.C:
+			r.sendProbe()
+
 		case <-r.quit:
 			return
 		}
@@ -100,17 +120,56 @@ func (r *HulaRouter) stop() {
 	r.wg.Wait()
 }
 
-func (r *HulaRouter) FindPath(dest [33]byte, amt btcutil.Amount) (
-	[]wire.OutPoint, [][33]byte, error ) {
+func (r *HulaRouter) clearEntry () {
+	r.rwMu.Lock()
+	for key, entry := range r.ProbeUpdateTable {
+		if time.Now().Unix() - entry.receiveTime > ClearCycle ||
+			r.BestHopTable[key].dis == math.MaxInt8{
+			delete(r.ProbeUpdateTable, key)
+			delete(r.BestHopTable,key)
+		}
+	}
+	r.rwMu.Unlock()
+}
 
+func (r *HulaRouter) sendProbe() {
+	for neighbour := range r.Neighbours{
+		probe := &lnwire.HULAProbe{
+			Destination: r.SelfNode,
+			Distance: math.MaxUint8,
+			UpperHop: r.SelfNode,
+		}
+		neighbourKey, err := btcec.ParsePubKey(neighbour[:], btcec.S256())
+		if err != nil {
+			hulaLog.Errorf("cannot parse the key :%V", err)
+			continue
+		}
+		balance, err := r.GetMaxBalanceWithPeer(neighbourKey)
+		if err != nil {
+			hulaLog.Errorf("can't find get the balance with peer:%v",
+				neighbourKey)
+		}
+		probe.Capacity = balance
+		err = r.SendToPeer(neighbourKey, probe)
+		if err != nil {
+			hulaLog.Errorf("send the probe to neighbour %v failed :%V",
+				neighbour, err)
+		}
+	}
+}
+
+func (r *HulaRouter) FindPath(dest [33]byte, amt btcutil.Amount) (
+	[]wire.OutPoint, [][33]byte, error) {
+	r.rwMu.RLock()
 	entry, ok := r.BestHopTable[dest]
-	if !ok || entry.capacity < amt{
+	r.rwMu.RUnlock()
+	if !ok || entry.capacity < amt {
 		return nil, nil, fmt.Errorf("cann't find the entry in table or amt insufficient")
 	}
 	hulaRequest := &lnwire.HULARequest{
-		SourceNodeID:r.SelfNode,
-		Addresses:r.Address,
-		DestNodeID: dest,
+		SourceNodeID: r.SelfNode,
+		Addresses:    r.Address,
+		DestNodeID:   dest,
 	}
 	requestID := []byte(routing.GenRequestID(string(r.SelfNode[:])))
 	copy(hulaRequest.RequestID[:], requestID)
@@ -132,10 +191,10 @@ func (r *HulaRouter) FindPath(dest [33]byte, amt btcutil.Amount) (
 	}
 
 	select {
-	case response := <- r.RequestPool[string(requestID)]:
+	case response := <-r.RequestPool[string(requestID)]:
 		hulaLog.Infof("recieved the hulaResponse: %v ", response)
 		return response.PathChannels, response.PathNodes, nil
-	case <-time.After(5 * time.Second):
+	case <-time.After(FindPathMmaxDelay * time.Second):
 		// if timeout, remove the channel from requestPool.
 		r.mu.Lock()
 		delete(r.RequestPool, string(requestID))
@@ -146,7 +205,7 @@ func (r *HulaRouter) FindPath(dest [33]byte, amt btcutil.Amount) (
 	return nil, nil, nil
 }
 
-func (r *HulaRouter) handleLinkChange (change *LinkChange) {
+func (r *HulaRouter) handleLinkChange(change *LinkChange) {
 	// if this is an add type, we solve the change.
 	if change.ChangeType == 1 {
 		r.rwMu.Lock()
@@ -154,7 +213,7 @@ func (r *HulaRouter) handleLinkChange (change *LinkChange) {
 		r.rwMu.Unlock()
 
 	} else if change.ChangeType == 0 {
-	// if this is remove type, solve it.
+		// if this is remove type, check if remove the neighbour.
 		find := false
 		dbChans, err := r.DB.FetchAllOpenChannels()
 		if err != nil {
@@ -169,31 +228,62 @@ func (r *HulaRouter) handleLinkChange (change *LinkChange) {
 		if find == false {
 			r.rwMu.Lock()
 			delete(r.Neighbours, change.NeighbourID)
+			delete(r.BestHopTable, change.NeighbourID)
+			delete(r.ProbeUpdateTable, change.NeighbourID)
 			r.rwMu.Unlock()
+
+			for neighbour := range r.Neighbours{
+				probe := &lnwire.HULAProbe{
+					Destination: change.NeighbourID,
+					Distance: math.MaxUint8,
+					UpperHop: r.SelfNode,
+					Capacity: 0,
+				}
+				neighbourKey, err := btcec.ParsePubKey(neighbour[:], btcec.S256())
+				if err != nil {
+					hulaLog.Errorf("cannot parse the key :%V", err)
+					continue
+				}
+				err = r.SendToPeer(neighbourKey, probe)
+				if err != nil {
+					hulaLog.Errorf("send the probe to neighbour %v failed :%V",
+						neighbour, err)
+				}
+			}
 		}
 	}
 }
 
 func (r *HulaRouter) handleProbe(p *HULAProbeMsg) error {
 	msg := p.msg
-	if routing.IfKeyEqual(msg.Destination, r.SelfNode) {
-		return  nil
-	}
 
+	if routing.IfKeyEqual(msg.Destination, r.SelfNode) {
+		return nil
+	}
+	if msg.Distance == math.MaxUint8 {
+		msg.Distance = math.MaxUint8 -1
+	}
+	r.rwMu.RLock()
 	bestHopEntry, ok := r.BestHopTable[msg.Destination]
+	r.rwMu.RUnlock()
 	if !ok {
+		r.rwMu.Lock()
 		r.BestHopTable[msg.Destination] = &HopTableEntry{
 			upperHop: msg.UpperHop,
 			capacity: msg.Capacity,
-			dis: msg.Distance + 1,
+			dis:      msg.Distance + 1,
 		}
 
-		r.ProbeUpdateTable[msg.Destination] = time.Now().Unix()
+		r.ProbeUpdateTable[msg.Destination].updateTime = time.Now().Unix()
+		r.ProbeUpdateTable[msg.Destination].receiveTime = time.Now().Unix()
+		r.BestHopTable[msg.Destination].updated = false
+		r.rwMu.Unlock()
+
 		for neighbour := range r.Neighbours {
 			probe := &lnwire.HULAProbe{
 				Destination: msg.Destination,
-				UpperHop: r.SelfNode,
-				Distance: msg.Distance + 1,
+				UpperHop:    r.SelfNode,
+				Distance:    msg.Distance + 1,
 			}
 			neighbourKey, err := btcec.ParsePubKey(neighbour[:], btcec.S256())
 			if err != nil {
@@ -211,67 +301,71 @@ func (r *HulaRouter) handleProbe(p *HULAProbeMsg) error {
 				hulaLog.Errorf("send probe :%v failed :%v", probe, err)
 			}
 		}
-		r.BestHopTable[msg.Destination].updated = false
 
-	// 找到关于这个dest的路由表信息，我们根据收到的probe和路由表决定要不要更新路由表
+		// 找到关于这个dest的路由表信息，我们根据收到的probe和路由表决定要不要更新路由表
 	} else {
+		// 更新关于发送这个probe的收到时间，以标记发送这个probe的source 节点是否还活着
+		r.ProbeUpdateTable[msg.Destination].receiveTime = time.Now().Unix()
 		// 如果还是上一跳发来的probe，我们无条件更新
 		if bytes.Equal(bestHopEntry.upperHop[:], msg.UpperHop[:]) {
 			bestHopEntry.dis = msg.Distance + 1
 			bestHopEntry.capacity = msg.Capacity
 			bestHopEntry.updated = true
 
-		// 不是上一跳发来的probe， 那么再分析两种情况
+			// 不是上一跳发来的probe， 那么再分析两种情况
 		} else {
 			// 如果跳数更少， 则更新
-			if bestHopEntry.dis > msg.Distance + 1 {
+			if bestHopEntry.dis > msg.Distance+1 {
 				bestHopEntry.dis = msg.Distance + 1
 				copy(bestHopEntry.upperHop[:], msg.UpperHop[:])
 				bestHopEntry.capacity = msg.Capacity
 				bestHopEntry.updated = true
 
-			// 跳数相同，保留capacity最大的
-			} else if bestHopEntry.dis == msg.Distance + 1 &&
+				// 跳数相同，保留capacity最大的
+			} else if bestHopEntry.dis == msg.Distance+1 &&
 				bestHopEntry.capacity < msg.Capacity {
 				copy(bestHopEntry.upperHop[:], msg.UpperHop[:])
 				bestHopEntry.capacity = msg.Capacity
 				bestHopEntry.updated = true
 			}
+		}
+		r.rwMu.RLock()
+		lastUpate, ok := r.ProbeUpdateTable[msg.Destination]
+		r.rwMu.RUnlock()
+		if !ok {
+			hulaLog.Errorf("%v do not exist in the update table")
+			return nil
+		}
 
-			lastUpate, ok := r.ProbeUpdateTable[msg.Destination]
-			if !ok {
-				hulaLog.Errorf("%v do not exist in the update table")
-				return nil
-			}
-
-			nowTime := time.Now().Unix()
-			if nowTime - lastUpate >= UpdateWindow &&
-				bestHopEntry.updated == true {
-				for neighbour := range r.Neighbours{
-					probe := &lnwire.HULAProbe{
-						Destination: msg.Destination,
-						UpperHop: r.SelfNode,
-						Distance: bestHopEntry.dis,
-					}
-					neighbourKey, err := btcec.ParsePubKey(neighbour[:], btcec.S256())
-					if err != nil {
-						continue
-					}
-					balance, err := r.GetMaxBalanceWithPeer(neighbourKey)
-					if err != nil {
-						hulaLog.Errorf("get max balance with peer :%v failed : %v",
-							neighbour, err)
-						continue
-					}
-					probe.Capacity = routing.MinAmount(balance, msg.Capacity)
-					err = r.SendToPeer(neighbourKey, probe)
-					if err != nil {
-						hulaLog.Errorf("send probe :%v failed :%v", probe, err)
-					}
+		nowTime := time.Now().Unix()
+		if nowTime-lastUpate.updateTime >= UpdateWindow &&
+			bestHopEntry.updated == true {
+			for neighbour := range r.Neighbours {
+				probe := &lnwire.HULAProbe{
+					Destination: msg.Destination,
+					UpperHop:    r.SelfNode,
+					Distance:    bestHopEntry.dis,
 				}
-				r.ProbeUpdateTable[msg.Destination] = time.Now().Unix()
-				bestHopEntry.updated = false
+				neighbourKey, err := btcec.ParsePubKey(neighbour[:], btcec.S256())
+				if err != nil {
+					continue
+				}
+				balance, err := r.GetMaxBalanceWithPeer(neighbourKey)
+				if err != nil {
+					hulaLog.Errorf("get max balance with peer :%v failed : %v",
+						neighbour, err)
+					continue
+				}
+				probe.Capacity = routing.MinAmount(balance, msg.Capacity)
+				err = r.SendToPeer(neighbourKey, probe)
+				if err != nil {
+					hulaLog.Errorf("send probe :%v failed :%v", probe, err)
+				}
 			}
+			r.rwMu.Lock()
+			r.ProbeUpdateTable[msg.Destination].updateTime = time.Now().Unix()
+			r.rwMu.Unlock()
+			bestHopEntry.updated = false
 		}
 	}
 	return nil
@@ -284,10 +378,10 @@ func (r *HulaRouter) handleRequest(req *HULARequestMsg) {
 	if bytes.Equal(dest[:], r.SelfNode[:]) {
 		hulaLog.Infof("get destination, begin send response")
 		hulaResponse := &lnwire.HULAResponse{
-			Success: 1,
-			PathNodes: msg.PathNodes,
+			Success:      1,
+			PathNodes:    msg.PathNodes,
 			PathChannels: msg.PathChannels,
-			RequestID: msg.RequestID,
+			RequestID:    msg.RequestID,
 		}
 		hulaResponse.PathNodes = append(hulaResponse.PathNodes, r.SelfNode)
 
@@ -323,13 +417,13 @@ func (r *HulaRouter) handleRequest(req *HULARequestMsg) {
 		}
 
 		sourceAddr := msg.Addresses[0]
-		identityKey, err := btcec.ParsePubKey(msg.SourceNodeID[:],btcec.S256())
+		identityKey, err := btcec.ParsePubKey(msg.SourceNodeID[:], btcec.S256())
 		if err != nil {
 			hulaLog.Errorf("cann't parse the key :%v", msg.SourceNodeID)
 		}
 		sourceNetAddr := &lnwire.NetAddress{
-			IdentityKey:identityKey,
-			Address:sourceAddr,
+			IdentityKey: identityKey,
+			Address:     sourceAddr,
 		}
 		r.mu.Lock()
 		connectedToSource := r.FindPeerByPubStr(string(msg.SourceNodeID[:]))
@@ -349,7 +443,7 @@ func (r *HulaRouter) handleRequest(req *HULARequestMsg) {
 		r.mu.Unlock()
 		return
 
-	} else if entry , ok := r.BestHopTable[dest]; ok {
+	} else if entry, ok := r.BestHopTable[dest]; ok {
 
 		dbChans, err := r.DB.FetchAllOpenChannels()
 		if err != nil {
@@ -456,11 +550,12 @@ func newHulaRouter(db *channeldb.DB, selfNode [33]byte,
 		RequestPool:      make(map[string]chan lnwire.HULAResponse),
 		LinkChangeBuff:   make(chan *LinkChange, BufferSize),
 		BestHopTable:     make(map[RouterID]*HopTableEntry),
-		ProbeUpdateTable: make(map[RouterID]int64),
+		ProbeUpdateTable: make(map[RouterID]*UpdateTableEntry),
 		Address:          addr,
 		mu:               sync.Mutex{},
-		rwMu:sync.RWMutex{},
-		timer:            time.NewTicker(ProbeSendCyble * time.Second),
+		rwMu:             sync.RWMutex{},
+		SendTimer:        time.NewTicker(ProbeSendCyble * time.Second),
+		ClearTimer:       time.NewTicker(ClearCycle * time.Second),
 		wg:               sync.WaitGroup{},
 		quit:             make(chan struct{}),
 	}
@@ -523,23 +618,24 @@ func (r *HulaRouter) ProcessHULAResponseMsg(msg *lnwire.HULAResponse,
 		return
 	}
 }
-func (r *HulaRouter)GetMaxBalanceWithPeer (key *btcec.PublicKey) (btcutil.Amount,
+
+func (r *HulaRouter) GetMaxBalanceWithPeer(key *btcec.PublicKey) (btcutil.Amount,
 	error) {
-		dbChans, err := r.DB.FetchAllOpenChannels()
-		if err != nil {
-			return 0, fmt.Errorf("cann't find the channel with peer :%v", key)
-		}
-		var candiChannel *channeldb.OpenChannel
-		for _, dbChan := range dbChans {
-			linkNodeID := dbChan.IdentityPub.SerializeCompressed()
-			if bytes.Equal(linkNodeID[:], key.SerializeCompressed()) {
-				if candiChannel == nil {
-					candiChannel = dbChan
-				} else if candiChannel.LocalCommitment.RemoteBalance <
-					dbChan.LocalCommitment.RemoteBalance {
-					candiChannel = dbChan
-				}
+	dbChans, err := r.DB.FetchAllOpenChannels()
+	if err != nil {
+		return 0, fmt.Errorf("cann't find the channel with peer :%v", key)
+	}
+	var candiChannel *channeldb.OpenChannel
+	for _, dbChan := range dbChans {
+		linkNodeID := dbChan.IdentityPub.SerializeCompressed()
+		if bytes.Equal(linkNodeID[:], key.SerializeCompressed()) {
+			if candiChannel == nil {
+				candiChannel = dbChan
+			} else if candiChannel.LocalCommitment.RemoteBalance <
+				dbChan.LocalCommitment.RemoteBalance {
+				candiChannel = dbChan
 			}
 		}
+	}
 	return candiChannel.LocalCommitment.RemoteBalance.ToSatoshis(), nil
 }
