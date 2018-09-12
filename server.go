@@ -611,8 +611,13 @@ func (s *server) Start() error {
 		return err
 	}
 
-	s.wg.Add(1)
-	go s.ripRouter.Start(&s.wg)
+	if RIPOPEN {
+		s.wg.Add(1)
+		go s.ripRouter.Start(&s.wg)
+	}
+	if HULAOPEN {
+		go s.hulaRouter.Start()
+	}
 	// With all the relevant sub-systems started, we'll now attempt to
 	// establish persistent connections to our direct channel collaborators
 	// within the network.
@@ -667,7 +672,12 @@ func (s *server) Stop() error {
 	s.cc.chainView.Stop()
 	s.connMgr.Stop()
 	s.cc.feeEstimator.Stop()
-	s.ripRouter.Stop()
+	if RIPOPEN {
+		s.ripRouter.Stop()
+	}
+	if HULAOPEN {
+		s.hulaRouter.Stop()
+	}
 	// Disconnect from each active peers to ensure that
 	// peerTerminationWatchers signal completion to each peer.
 	for _, peer := range s.Peers() {
