@@ -85,7 +85,7 @@ type UpdateTableEntry struct {
 	receiveTime int64
 }
 // 只能以线程形式启动
-func (r *HulaRouter) start() {
+func (r *HulaRouter) Start() {
 	r.wg.Add(1)
 	defer r.wg.Done()
 
@@ -115,7 +115,7 @@ func (r *HulaRouter) start() {
 	}
 }
 
-func (r *HulaRouter) stop() {
+func (r *HulaRouter) Stop() {
 	close(r.quit)
 	r.wg.Wait()
 }
@@ -538,7 +538,7 @@ func (r *HulaRouter) handleResponse(req *HULAResponseMsg) {
 // 此外如果发现邻居断了，会立即发送断掉的消息给其他邻居以int最大数作为距离
 // 在处理最长probe时删掉自己的表中的那一条，并且将该probe发给邻居
 // 如果本身就没有那一条，那么说明其他邻居没有依赖它这条路由信息，因此就不用再广播
-func newHulaRouter(db *channeldb.DB, selfNode [33]byte,
+func NewHulaRouter(db *channeldb.DB, selfNode [33]byte,
 	addr []net.Addr) *HulaRouter {
 	router := &HulaRouter{
 		DB:               db,

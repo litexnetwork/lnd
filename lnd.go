@@ -34,7 +34,7 @@ import (
 	"google.golang.org/grpc/credentials"
 
 	proxy "github.com/grpc-ecosystem/grpc-gateway/runtime"
-	flags "github.com/jessevdk/go-flags"
+	"github.com/jessevdk/go-flags"
 	"github.com/lightningnetwork/lnd/autopilot"
 	"github.com/lightningnetwork/lnd/channeldb"
 	"github.com/lightningnetwork/lnd/keychain"
@@ -43,17 +43,24 @@ import (
 	"github.com/lightningnetwork/lnd/lnwallet/btcwallet"
 	"github.com/lightningnetwork/lnd/lnwire"
 	"github.com/lightningnetwork/lnd/macaroons"
-	"github.com/lightningnetwork/lnd/routing/RIP"
 	"github.com/lightningnetwork/lnd/walletunlocker"
 	"github.com/roasbeef/btcd/btcec"
 	"github.com/roasbeef/btcd/wire"
 	"github.com/roasbeef/btcutil"
 	"github.com/roasbeef/btcwallet/wallet"
+	"github.com/lightningnetwork/lnd/routing/RIP"
+	"github.com/lightningnetwork/lnd/routing/hula"
 )
 
 const (
 	// Make certificate valid for 14 months.
 	autogenCertValidity = 14 /*months*/ * 30 /*days*/ * 24 * time.Hour
+
+	// RIP router if opened.
+	RIPOPEN = false
+
+	// HULA router if opened.
+	HULAOPEN = true
 )
 
 var (
@@ -514,14 +521,28 @@ func lndMain() error {
 	// We add the rip router
 	var selfNodeKey [33]byte
 	copy(selfNodeKey[:], server.identityPriv.PubKey().SerializeCompressed())
-	server.ripRouter = RIP.NewRIPRouter(server.chanDB, selfNodeKey, server.currentNodeAnn.Addresses)
-	server.ripRouter.SendToPeer = server.SendToPeer
-	server.ripRouter.ConnectToPeer = server.ConnectToPeer
-	server.ripRouter.DisconnectPeer = server.DisconnectPeer
-	server.ripRouter.FindPeerByPubStr = func(pubStr string) bool {
-		find, _ := server.FindPeerByPubStr(pubStr)
-		return find != nil
+	if RIPOPEN {
+		server.ripRouter = RIP.NewRIPRouter(server.chanDB, selfNodeKey, server.currentNodeAnn.Addresses)
+		server.ripRouter.SendToPeer = server.SendToPeer
+		server.ripRouter.ConnectToPeer = server.ConnectToPeer
+		server.ripRouter.DisconnectPeer = server.DisconnectPeer
+		server.ripRouter.FindPeerByPubStr = func(pubStr string) bool {
+			find, _ := server.FindPeerByPubStr(pubStr)
+			return find != nil
+		}
 	}
+
+	if HULAOPEN {
+		server.hulaRouter = hula.NewHulaRouter(server.chanDB, selfNodeKey, server.currentNodeAnn.Addresses)
+		server.hulaRouter.SendToPeer = server.SendToPeer
+		server.hulaRouter.ConnectToPeer = server.ConnectToPeer
+		server.hulaRouter.DisconnectPeer = server.DisconnectPeer
+		server.hulaRouter.FindPeerByPubStr = func(pubStr string) bool {
+			find, _ := server.FindPeerByPubStr(pubStr)
+			return find != nil
+		}
+	}
+
 	// Check macaroon authentication if macaroons aren't disabled.
 	if macaroonService != nil {
 		serverOpts = append(serverOpts,
