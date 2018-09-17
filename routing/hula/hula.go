@@ -136,7 +136,7 @@ func (r *HulaRouter) sendProbe() {
 	for neighbour := range r.Neighbours{
 		probe := &lnwire.HULAProbe{
 			Destination: r.SelfNode,
-			Distance: math.MaxUint8,
+			Distance: 0,
 			UpperHop: r.SelfNode,
 		}
 		neighbourKey, err := btcec.ParsePubKey(neighbour[:], btcec.S256())
@@ -333,7 +333,8 @@ func (r *HulaRouter) handleProbe(p *HULAProbeMsg) error {
 		lastUpate, ok := r.ProbeUpdateTable[msg.Destination]
 		r.rwMu.RUnlock()
 		if !ok {
-			hulaLog.Errorf("%v do not exist in the update table")
+			hulaLog.Errorf("%v do not exist in the update table",
+				msg.Destination)
 			return nil
 		}
 
@@ -534,10 +535,6 @@ func (r *HulaRouter) handleResponse(req *HULAResponseMsg) {
 	r.mu.Unlock()
 }
 
-// 定期扫描路由表，如果某entry超过一定时间没有更新过，那么就删除
-// 此外如果发现邻居断了，会立即发送断掉的消息给其他邻居以int最大数作为距离
-// 在处理最长probe时删掉自己的表中的那一条，并且将该probe发给邻居
-// 如果本身就没有那一条，那么说明其他邻居没有依赖它这条路由信息，因此就不用再广播
 func NewHulaRouter(db *channeldb.DB, selfNode [33]byte,
 	addr []net.Addr) *HulaRouter {
 	router := &HulaRouter{
