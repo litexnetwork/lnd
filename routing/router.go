@@ -1602,7 +1602,7 @@ func (r *ChannelRouter) SendPayment(payment *LightningPayment) ([32]byte, *Route
 			"session: %v", err)
 	}
 
-	ripTried := false
+	dvTried := false
 	// We'll continue until either our payment succeeds, or we encounter a
 	// critical error during path finding.
 	for {
@@ -1627,8 +1627,8 @@ func (r *ChannelRouter) SendPayment(payment *LightningPayment) ([32]byte, *Route
 			// are expiring.
 		}
 		var route *Route
-		if !ripTried {
-			ripTried = true
+		if !dvTried {
+			dvTried = true
 			pathNodes := payment.PathNodes
 			pathChannels := payment.PathChannels
 			if len(pathChannels) != len(pathNodes) ||
