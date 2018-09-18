@@ -13,6 +13,7 @@ import (
 	"sync"
 	"time"
 	"math"
+	"github.com/davecgh/go-spew/spew"
 )
 
 const (
@@ -127,6 +128,8 @@ func (r *HulaRouter) clearEntry () {
 			r.BestHopTable[key].dis == math.MaxInt8{
 			delete(r.ProbeUpdateTable, key)
 			delete(r.BestHopTable,key)
+			hulaLog.Infof("remove the entry key:%v from updateTable and" +
+				"hopTable",key)
 		}
 	}
 	r.rwMu.Unlock()
@@ -156,6 +159,7 @@ func (r *HulaRouter) sendProbe() {
 				neighbour, err)
 		}
 	}
+	hulaLog.Infof("send new probe to neighbours")
 }
 
 func (r *HulaRouter) FindPath(dest [33]byte, amt btcutil.Amount) (
@@ -250,11 +254,19 @@ func (r *HulaRouter) handleLinkChange(change *LinkChange) {
 						neighbour, err)
 				}
 			}
+			hulaLog.Infof("the neighbour: %v was removed, and send the probe " +
+				"to neighbours")
 		}
 	}
 }
 
 func (r *HulaRouter) handleProbe(p *HULAProbeMsg) error {
+
+	hulaLog.Debugf("router is :%v",
+		newLogClosure(func() string {
+			return spew.Sdump(r.BestHopTable)
+		}),
+	)
 	msg := p.msg
 
 	if routing.IfKeyEqual(msg.Destination, r.SelfNode) {
@@ -272,11 +284,13 @@ func (r *HulaRouter) handleProbe(p *HULAProbeMsg) error {
 			upperHop: msg.UpperHop,
 			capacity: msg.Capacity,
 			dis:      msg.Distance + 1,
+			updated: false,
 		}
 
-		r.ProbeUpdateTable[msg.Destination].updateTime = time.Now().Unix()
-		r.ProbeUpdateTable[msg.Destination].receiveTime = time.Now().Unix()
-		r.BestHopTable[msg.Destination].updated = false
+		r.ProbeUpdateTable[msg.Destination] = &UpdateTableEntry{
+			updateTime: time.Now().Unix(),
+			receiveTime: time.Now().Unix(),
+		}
 		r.rwMu.Unlock()
 
 		for neighbour := range r.Neighbours {
@@ -306,6 +320,7 @@ func (r *HulaRouter) handleProbe(p *HULAProbeMsg) error {
 	} else {
 		// 更新关于发送这个probe的收到时间，以标记发送这个probe的source 节点是否还活着
 		r.ProbeUpdateTable[msg.Destination].receiveTime = time.Now().Unix()
+		r.rwMu.Lock()
 		// 如果还是上一跳发来的probe，我们无条件更新
 		if bytes.Equal(bestHopEntry.upperHop[:], msg.UpperHop[:]) {
 			bestHopEntry.dis = msg.Distance + 1
@@ -315,20 +330,22 @@ func (r *HulaRouter) handleProbe(p *HULAProbeMsg) error {
 			// 不是上一跳发来的probe， 那么再分析两种情况
 		} else {
 			// 如果跳数更少， 则更新
-			if bestHopEntry.dis > msg.Distance+1 {
+			if bestHopEntry.dis > msg.Distance + 1 {
 				bestHopEntry.dis = msg.Distance + 1
 				copy(bestHopEntry.upperHop[:], msg.UpperHop[:])
 				bestHopEntry.capacity = msg.Capacity
 				bestHopEntry.updated = true
 
 				// 跳数相同，保留capacity最大的
-			} else if bestHopEntry.dis == msg.Distance+1 &&
+			} else if bestHopEntry.dis == msg.Distance + 1 &&
 				bestHopEntry.capacity < msg.Capacity {
 				copy(bestHopEntry.upperHop[:], msg.UpperHop[:])
 				bestHopEntry.capacity = msg.Capacity
 				bestHopEntry.updated = true
 			}
 		}
+		r.rwMu.Unlock()
+
 		r.rwMu.RLock()
 		lastUpate, ok := r.ProbeUpdateTable[msg.Destination]
 		r.rwMu.RUnlock()
@@ -369,6 +386,11 @@ func (r *HulaRouter) handleProbe(p *HULAProbeMsg) error {
 			bestHopEntry.updated = false
 		}
 	}
+	hulaLog.Debugf("router is :%v",
+		newLogClosure(func() string {
+			return spew.Sdump(r.BestHopTable)
+		}),
+	)
 	return nil
 }
 
@@ -485,7 +507,7 @@ func (r *HulaRouter) handleRequest(req *HULARequestMsg) {
 		}
 		// TODO: This value sometimes will be null, find the reason.
 		if len(msg.Addresses) == 0 {
-			hulaLog.Errorf("the ripRequest doesn't hold the source node address," +
+			hulaLog.Errorf("the hulaRequest doesn't hold the source node address," +
 				"we cann't send the response to source node")
 			return
 		}
