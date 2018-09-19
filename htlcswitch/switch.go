@@ -1758,7 +1758,7 @@ func (s *Switch) AddLink(link ChannelLink) error {
 			mailbox, chanID, shortChanID,
 		)
 	}
-	s.cfg.UpdateRouterNeighbourState(link.Peer().PubKey(), 0)
+	s.cfg.UpdateRouterNeighbourState(link.Peer().PubKey(), 1)
 	return nil
 }
 
@@ -1832,7 +1832,9 @@ func (s *Switch) RemoveLink(chanID lnwire.ChannelID) error {
 	if err != nil {
 		return ErrChannelLinkNotFound
 	}
-	s.cfg.UpdateRouterNeighbourState(link.Peer().PubKey(), 1)
+	log.Infof("switch send msg to hula")
+	s.cfg.UpdateRouterNeighbourState(link.Peer().PubKey(), 0)
+	log.Infof("switch send to hula done")
 	return s.removeLink(chanID)
 }
 

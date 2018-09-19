@@ -257,6 +257,7 @@ func newServer(listenAddrs []string, chanDB *channeldb.DB, cc *chainControl,
 				NeighbourID: key,
 			}
 			s.hulaRouter.LinkChangeBuff <- linkChange
+			hulaLog.Infof("hula neighbor is :%v", s.hulaRouter.Neighbours)
 		},
 	})
 	if err != nil {
@@ -676,6 +677,7 @@ func (s *server) Stop() error {
 		s.ripRouter.Stop()
 	}
 	if HULAOPEN {
+		srvrLog.Debugf("stophula")
 		s.hulaRouter.Stop()
 	}
 	// Disconnect from each active peers to ensure that
@@ -683,7 +685,7 @@ func (s *server) Stop() error {
 	for _, peer := range s.Peers() {
 		s.DisconnectPeer(peer.addr.IdentityKey)
 	}
-
+	s.wg.Done()
 	// Wait for all lingering goroutines to quit.
 	s.wg.Wait()
 
