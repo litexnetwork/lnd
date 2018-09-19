@@ -685,7 +685,7 @@ func (s *server) Stop() error {
 	for _, peer := range s.Peers() {
 		s.DisconnectPeer(peer.addr.IdentityKey)
 	}
-	s.wg.Done()
+
 	// Wait for all lingering goroutines to quit.
 	s.wg.Wait()
 
