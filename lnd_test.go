@@ -3085,14 +3085,14 @@ func testMultiHopPayments(net *lntest.NetworkHarness, t *harnessTest) {
 				event.Fee)
 		}
 	}
-
+/*
 	ctxt, _ = context.WithTimeout(ctxb, timeout)
 	closeChannelAndAssert(ctxt, t, net, net.Alice, chanPointAlice, false)
 	ctxt, _ = context.WithTimeout(ctxb, timeout)
 	closeChannelAndAssert(ctxt, t, net, dave, chanPointDave, false)
 	ctxt, _ = context.WithTimeout(ctxb, timeout)
 	closeChannelAndAssert(ctxt, t, net, carol, chanPointCarol, false)
-
+*/
 	// Finally, shutdown the nodes we created for the duration of the
 	// tests, only leaving the two seed nodes (Alice and Bob) within our
 	// test network.
@@ -10446,11 +10446,11 @@ var testsCases = []*testCase{
 			name: "channel balance",
 			test: testChannelBalance,
 		},
-	*/{
-		name: "single hop invoice",
-		test: testSingleHopInvoice,
-	},
-	/*	{
+		{
+			name: "single hop invoice",
+			test: testSingleHopInvoice,
+		},
+		{
 			name: "sphinx replay persistence",
 			test: testSphinxReplayPersistence,
 		},

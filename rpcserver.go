@@ -27,7 +27,6 @@ import (
 	"github.com/lightningnetwork/lnd/lnwallet"
 	"github.com/lightningnetwork/lnd/lnwire"
 	"github.com/lightningnetwork/lnd/routing"
-	"github.com/lightningnetwork/lnd/routing/RIP"
 	"github.com/lightningnetwork/lnd/zpay32"
 	"github.com/roasbeef/btcd/blockchain"
 	"github.com/roasbeef/btcd/btcec"
@@ -1036,10 +1035,11 @@ func (r *rpcServer) CloseChannel(in *lnrpc.CloseChannelRequest,
 	}
 	channel.Stop()
 
-	var neighbourID [33]byte
-	copy(neighbourID[:], channel.State().IdentityPub.SerializeCompressed())
-	r.server.fundingMgr.cfg.UpdateRipRouter(RIP.LINK_REMOVE, neighbourID)
-
+//	var neighbourID [33]byte
+//	copy(neighbourID[:], channel.State().IdentityPub.SerializeCompressed())
+//	if RIPOPEN {
+//		r.server.fundingMgr.cfg.UpdateRipRouter(RIP.LINK_REMOVE, neighbourID)
+//	}
 	// If a force closure was requested, then we'll handle all the details
 	// around the creation and broadcast of the unilateral closure
 	// transaction here rather than going to the switch as we don't require

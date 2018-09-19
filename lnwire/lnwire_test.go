@@ -617,6 +617,46 @@ func TestLightningWireProtocol(t *testing.T) {
 
 			v[0] = reflect.ValueOf(req)
 		},
+		MsgHULAProbe: func(v []reflect.Value, r *rand.Rand) {
+			node1, _ := randRawKey()
+			node2, _ := randRawKey()
+			probe := HULAProbe{
+				Destination: node1,
+				UpperHop: node2,
+				Distance: uint8(r.Int31()),
+				Capacity: btcutil.Amount(r.Int63()),
+			}
+			v[0] = reflect.ValueOf(probe)
+		},
+		MsgHULARequest: func(v []reflect.Value, r *rand.Rand) {
+			var err error
+			req := HULARequest{
+				RequestAmount: btcutil.Amount(r.Int63()),
+				Addresses:     testAddrs,
+				PathChannels:  []wire.OutPoint{*outpoint1},
+			}
+			req.SourceNodeID, err = randRawKey()
+			if err != nil {
+				t.Fatalf("unable to gen raw key")
+			}
+			node1, _ := randRawKey()
+			req.PathNodes = [][33]byte{node1}[:]
+			req.DestNodeID = node1
+			req.RequestID = node1
+
+			v[0] = reflect.ValueOf(req)
+		},
+		MsgHULAResponse: func(v []reflect.Value, r *rand.Rand) {
+			node1, _ := randRawKey()
+			req := HULAResponse{
+				RequestID:    node1,
+				Success:      1,
+				PathChannels: []wire.OutPoint{*outpoint1},
+				PathNodes:    [][33]byte{node1}[:],
+			}
+
+			v[0] = reflect.ValueOf(req)
+		},
 	}
 
 	// With the above types defined, we'll now generate a slice of
@@ -783,6 +823,24 @@ func TestLightningWireProtocol(t *testing.T) {
 		{
 			msgType: MsgRIPResponse,
 			scenario: func(m RIPResponse) bool {
+				return mainScenario(&m)
+			},
+		},
+		{
+			msgType:MsgHULAProbe,
+			scenario: func(m HULAProbe) bool {
+				return mainScenario(&m)
+			},
+		},
+		{
+			msgType:MsgHULARequest,
+			scenario: func(m HULARequest) bool {
+				return mainScenario(&m)
+			},
+		},
+		{
+			msgType: MsgHULAResponse,
+			scenario: func(m HULAResponse) bool{
 				return mainScenario(&m)
 			},
 		},

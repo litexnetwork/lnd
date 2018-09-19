@@ -13,12 +13,11 @@ import (
 	"sync"
 	"time"
 	"math"
-	"github.com/davecgh/go-spew/spew"
 )
 
 const (
-	BufferSize     = 100
-	UpdateWindow   = 1
+	BufferSize     = 1000
+	UpdateWindow   = 3
 	ProbeSendCyble = 1
 	ClearCycle     = 5
 	FindPathMmaxDelay = 5
@@ -93,22 +92,22 @@ func (r *HulaRouter) Start() {
 	for {
 		select {
 		case linkChange := <-r.LinkChangeBuff:
-			r.handleLinkChange(linkChange)
+			go r.handleLinkChange(linkChange)
 
 		case probe := <-r.ProbeBuffer:
-			r.handleProbe(probe)
+			go r.handleProbe(probe)
 
 		case request := <-r.RequestBuffer:
-			r.handleRequest(request)
+			go r.handleRequest(request)
 
 		case response := <-r.ResponseBuffer:
-			r.handleResponse(response)
+			go r.handleResponse(response)
 
 		case <-r.ClearTimer.C:
-			r.clearEntry()
+			go r.clearEntry()
 
 		case <-r.SendTimer.C:
-			r.sendProbe()
+			go r.sendProbe()
 
 		case <-r.quit:
 			return
@@ -118,7 +117,10 @@ func (r *HulaRouter) Start() {
 
 func (r *HulaRouter) Stop() {
 	close(r.quit)
+	hulaLog.Infof("hula recieved close request")
+
 	r.wg.Wait()
+	hulaLog.Infof("hula stopped")
 }
 
 func (r *HulaRouter) clearEntry () {
@@ -159,7 +161,13 @@ func (r *HulaRouter) sendProbe() {
 				neighbour, err)
 		}
 	}
-	hulaLog.Infof("send new probe to neighbours")
+//	probe := &lnwire.HULAProbe{
+//		Distance: 0,
+//		Destination: r.SelfNode,
+//		UpperHop:r.SelfNode,
+//	}
+//	hulaLog.Infof("hula neighbour is %v", r.Neighbours)
+//	hulaLog.Infof("send new probe  :%v to neighbours", probe)
 }
 
 func (r *HulaRouter) FindPath(dest [33]byte, amt btcutil.Amount) (
@@ -211,6 +219,7 @@ func (r *HulaRouter) FindPath(dest [33]byte, amt btcutil.Amount) (
 
 func (r *HulaRouter) handleLinkChange(change *LinkChange) {
 	// if this is an add type, we solve the change.
+	hulaLog.Infof("hula router recieve linkchange %v", change)
 	if change.ChangeType == 1 {
 		r.rwMu.Lock()
 		r.Neighbours[change.NeighbourID] = struct{}{}
@@ -258,15 +267,18 @@ func (r *HulaRouter) handleLinkChange(change *LinkChange) {
 				"to neighbours")
 		}
 	}
+	hulaLog.Infof("hula router solved the linkchange " +
+		"neighbours is %v", r.Neighbours)
 }
 
 func (r *HulaRouter) handleProbe(p *HULAProbeMsg) error {
-
+/*
 	hulaLog.Debugf("router is :%v",
 		newLogClosure(func() string {
 			return spew.Sdump(r.BestHopTable)
 		}),
 	)
+*/
 	msg := p.msg
 
 	if routing.IfKeyEqual(msg.Destination, r.SelfNode) {
@@ -294,6 +306,9 @@ func (r *HulaRouter) handleProbe(p *HULAProbeMsg) error {
 		r.rwMu.Unlock()
 
 		for neighbour := range r.Neighbours {
+			if bytes.Equal(neighbour[:], p.addr.IdentityKey.SerializeCompressed()[:]) {
+				continue
+			}
 			probe := &lnwire.HULAProbe{
 				Destination: msg.Destination,
 				UpperHop:    r.SelfNode,
@@ -359,6 +374,9 @@ func (r *HulaRouter) handleProbe(p *HULAProbeMsg) error {
 		if nowTime-lastUpate.updateTime >= UpdateWindow &&
 			bestHopEntry.updated == true {
 			for neighbour := range r.Neighbours {
+				if bytes.Equal(neighbour[:], p.addr.IdentityKey.SerializeCompressed()[:]) {
+					continue
+				}
 				probe := &lnwire.HULAProbe{
 					Destination: msg.Destination,
 					UpperHop:    r.SelfNode,
@@ -386,11 +404,13 @@ func (r *HulaRouter) handleProbe(p *HULAProbeMsg) error {
 			bestHopEntry.updated = false
 		}
 	}
+	/*
 	hulaLog.Debugf("router is :%v",
 		newLogClosure(func() string {
 			return spew.Sdump(r.BestHopTable)
 		}),
 	)
+	*/
 	return nil
 }
 
