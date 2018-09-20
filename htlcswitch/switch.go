@@ -1826,6 +1826,11 @@ func (s *Switch) getLinkByShortID(chanID lnwire.ShortChannelID) (ChannelLink, er
 // RemoveLink is used to initiate the handling of the remove link command. The
 // request will be propagated/handled to/in the main goroutine.
 func (s *Switch) RemoveLink(chanID lnwire.ChannelID) error {
+	link, err := s.GetLink(chanID)
+	if err != nil {
+		return ErrChannelLinkNotFound
+	}
+	s.cfg.UpdateRouterNeighbourState(link.Peer().PubKey(), 0)
 	s.indexMtx.Lock()
 	defer s.indexMtx.Unlock()
 
@@ -1837,15 +1842,7 @@ func (s *Switch) RemoveLink(chanID lnwire.ChannelID) error {
 // NOTE: This MUST be called with the indexMtx held.
 func (s *Switch) removeLink(chanID lnwire.ChannelID) error {
 	log.Infof("Removing channel link with ChannelID(%v)", chanID)
-/*
-	link, err := s.GetLink(chanID)
-	if err != nil {
-		return ErrChannelLinkNotFound
-	}
-	log.Infof("switch send msg to hula")
-	s.cfg.UpdateRouterNeighbourState(link.Peer().PubKey(), 0)
-	log.Infof("switch send to hula done")
-*/
+
 	link, ok := s.linkIndex[chanID]
 	if ok {
 		s.removeLiveLink(link)
