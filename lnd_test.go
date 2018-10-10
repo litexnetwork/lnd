@@ -10731,6 +10731,12 @@ func TestLightningNetworkDaemon(t *testing.T) {
 			lndHarness.OnTxAccepted(hash)
 		},
 	}
+	// 设置一个router的参数，表示使用哪个router, 默认是不使用自己的router
+	// "--riprouter"
+	// "--hularouter"
+	// ......
+
+	// uncomment me! args = append(args, "--hularouter")
 	btcdHarness, err := rpctest.New(harnessNetParams, handlers, args)
 	if err != nil {
 		ht.Fatalf("unable to create mining node: %v", err)

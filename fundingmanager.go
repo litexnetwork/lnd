@@ -1726,7 +1726,7 @@ func (f *fundingManager) handleFundingSigned(fmsg *fundingSignedMsg) {
 		// new channel created, so the rip module need update.
 		var neighbourID [33]byte
 		copy(neighbourID[:], completeChan.IdentityPub.SerializeCompressed())
-		if RIPOPEN {
+		if cfg.Router.RipRouter {
 			f.cfg.UpdateRipRouter(RIP.LINK_ADD, neighbourID)
 		}
 
@@ -1994,7 +1994,7 @@ func (f *fundingManager) handleFundingConfirmation(completeChan *channeldb.OpenC
 
 	var neighbourID [33]byte
 	copy(neighbourID[:], completeChan.IdentityPub.SerializeCompressed())
-	if RIPOPEN {
+	if cfg.Router.RipRouter {
 		f.cfg.UpdateRipRouter(RIP.LINK_ADD, neighbourID)
 	}
 

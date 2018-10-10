@@ -612,11 +612,11 @@ func (s *server) Start() error {
 		return err
 	}
 
-	if RIPOPEN {
+	if cfg.Router.RipRouter {
 		s.wg.Add(1)
 		go s.ripRouter.Start(&s.wg)
 	}
-	if HULAOPEN {
+	if cfg.Router.HulaRouter {
 		go s.hulaRouter.Start()
 	}
 	// With all the relevant sub-systems started, we'll now attempt to
@@ -673,10 +673,10 @@ func (s *server) Stop() error {
 	s.cc.chainView.Stop()
 	s.connMgr.Stop()
 	s.cc.feeEstimator.Stop()
-	if RIPOPEN {
+	if cfg.Router.RipRouter {
 		s.ripRouter.Stop()
 	}
-	if HULAOPEN {
+	if cfg.Router.HulaRouter {
 		srvrLog.Debugf("stophula")
 		s.hulaRouter.Stop()
 	}

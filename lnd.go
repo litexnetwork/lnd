@@ -55,12 +55,6 @@ import (
 const (
 	// Make certificate valid for 14 months.
 	autogenCertValidity = 14 /*months*/ * 30 /*days*/ * 24 * time.Hour
-
-	// RIP router if opened.
-	RIPOPEN = false
-
-	// HULA router if opened.
-	HULAOPEN = true
 )
 
 var (
@@ -521,7 +515,7 @@ func lndMain() error {
 	// We add the rip router
 	var selfNodeKey [33]byte
 	copy(selfNodeKey[:], server.identityPriv.PubKey().SerializeCompressed())
-	if RIPOPEN {
+	if cfg.Router.RipRouter {
 		server.ripRouter = RIP.NewRIPRouter(server.chanDB, selfNodeKey, server.currentNodeAnn.Addresses)
 		server.ripRouter.SendToPeer = server.SendToPeer
 		server.ripRouter.ConnectToPeer = server.ConnectToPeer
@@ -532,7 +526,7 @@ func lndMain() error {
 		}
 	}
 
-	if HULAOPEN {
+	if cfg.Router.HulaRouter {
 		server.hulaRouter = hula.NewHulaRouter(server.chanDB, selfNodeKey, server.currentNodeAnn.Addresses)
 		server.hulaRouter.SendToPeer = server.SendToPeer
 		server.hulaRouter.ConnectToPeer = server.ConnectToPeer

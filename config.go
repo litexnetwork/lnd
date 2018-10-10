@@ -58,6 +58,8 @@ const (
 
 	defaultAlias = ""
 	defaultColor = "#3399FF"
+
+	defaultRouter = ""
 )
 
 var (
@@ -141,6 +143,13 @@ type torConfig struct {
 	StreamIsolation bool   `long:"streamisolation" description:"Enable Tor stream isolation by randomizing user credentials for each connection."`
 }
 
+type routerConfig struct {
+	RipRouter 		bool `long:"riprouter" description:"use the rip router"`
+	HulaRouter		bool `long:"hularouter" description:"use the hula router"`
+	MultiPathRouter bool `long:"multipathrouter" description:"use the multi-path router"`
+	// TODO(xuehan): add more router
+}
+
 // config defines the configuration options for lnd.
 //
 // See loadConfig for further details regarding the configuration
@@ -191,6 +200,7 @@ type config struct {
 	Autopilot *autoPilotConfig `group:"autopilot" namespace:"autopilot"`
 
 	Tor *torConfig `group:"Tor" namespace:"tor"`
+	Router *routerConfig `group:"router" namespace:"router"`
 
 	Hodl *hodl.Config `group:"hodl" namespace:"hodl"`
 
@@ -227,6 +237,11 @@ func loadConfig() (*config, error) {
 		InvoiceMacPath: defaultInvoiceMacPath,
 		ReadMacPath:    defaultReadMacPath,
 		LogDir:         defaultLogDir,
+		Router:			&routerConfig{
+			RipRouter: false,
+			HulaRouter: false,
+			MultiPathRouter: false,
+		},
 		MaxLogFiles:    defaultMaxLogFiles,
 		MaxLogFileSize: defaultMaxLogFileSize,
 		Bitcoin: &chainConfig{

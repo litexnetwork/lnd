@@ -2211,7 +2211,7 @@ func (r *rpcServer) SendPayment(paymentStream lnrpc.Lightning_SendPaymentServer)
 					payment.FinalCLTVDelta = &p.cltvDelta
 				}
 
-				// We find a path by RIP module, if find pass the result to
+				// We find a path by RIP/HULA module, if find pass the result to
 				// payment.
 				var (
 					destForRouter [33]byte
@@ -2219,10 +2219,10 @@ func (r *rpcServer) SendPayment(paymentStream lnrpc.Lightning_SendPaymentServer)
 					pathNodes 	 [][33]byte
 					)
 				copy(destForRouter[:], destNode.SerializeCompressed())
-				if RIPOPEN {
+				if cfg.Router.RipRouter {
 					pathChannels, pathNodes, err = r.server.ripRouter.FindPath(destForRouter)
 				}
-				if HULAOPEN {
+				if cfg.Router.HulaRouter {
 					pathChannels, pathNodes, err = r.server.hulaRouter.FindPath(
 						destForRouter,p.msat.ToSatoshis())
 				}
