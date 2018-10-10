@@ -15,7 +15,7 @@ import (
 	"time"
 )
 
-const NUM_RIP_BUFFER = 10
+const NUM_RIP_BUFFER = 100
 
 const (
 	LINK_ADD    = 1

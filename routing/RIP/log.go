@@ -2,7 +2,7 @@ package RIP
 
 import "github.com/btcsuite/btclog"
 
-// sphxLog  is a logger that is initialized with no output filters.  This
+// ripLog  is a logger that is initialized with no output filters.  This
 // means the package will not perform any logging by default until the caller
 // requests it.
 var ripLog btclog.Logger
