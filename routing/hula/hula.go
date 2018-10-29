@@ -205,6 +205,7 @@ func (r *HulaRouter) FindPath(dest [33]byte, amt btcutil.Amount) (
 	select {
 	case response := <-r.RequestPool[string(requestID)]:
 		hulaLog.Infof("recieved the hulaResponse: %v ", response)
+		delete(r.RequestPool, string(requestID))
 		return response.PathChannels, response.PathNodes, nil
 	case <-time.After(FindPathMmaxDelay * time.Second):
 		// if timeout, remove the channel from requestPool.
@@ -571,8 +572,14 @@ func (r *HulaRouter) handleResponse(req *HULAResponseMsg) {
 		r.mu.Unlock()
 		hulaLog.Errorf("this response is timed out or no request " +
 			"matches")
+		return
 	}
 	hulaLog.Infof("requestPool recieved ")
+	if msg.Success == 0 {
+		hulaLog.Errorf("the result of response returned is failed")
+		r.mu.Unlock()
+		return
+	}
 	r.RequestPool[string(msg.RequestID[:])] <- *msg
 	r.mu.Unlock()
 }

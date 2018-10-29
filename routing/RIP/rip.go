@@ -291,6 +291,7 @@ func (r *RIPRouter) FindPath(dest [33]byte) ([]wire.OutPoint,
 	select {
 	case response := <-r.requestPool[string(requestID)]:
 		ripLog.Infof("recieved the ripResponse: %v ", response)
+		delete(r.requestPool, string(requestID))
 		return response.PathChannels, response.PathNodes, nil
 	case <-time.After(5 * time.Second):
 		// if timeout, remove the channel from requestPool.
@@ -459,7 +460,9 @@ func (r *RIPRouter) handleRipResponse(msg *RIPResponseMsg) error {
 			"matches")
 	}
 	ripLog.Infof("requestPool recieved ")
-	r.requestPool[string(ripResponse.RequestID[:])] <- *ripResponse
+	if ripResponse.Success == 1 {
+		r.requestPool[string(ripResponse.RequestID[:])] <- *ripResponse
+	}
 	r.mu.RUnlock()
 	return nil
 }

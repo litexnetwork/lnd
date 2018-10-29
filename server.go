@@ -256,8 +256,9 @@ func newServer(listenAddrs []string, chanDB *channeldb.DB, cc *chainControl,
 				ChangeType:  changeType,
 				NeighbourID: key,
 			}
+			// TODO(xuehan): 修改成可配置的
 			s.hulaRouter.LinkChangeBuff <- linkChange
-			hulaLog.Infof("hula neighbor is :%v", s.hulaRouter.Neighbours)
+			srvrLog.Infof("hula neighbor is :%v", s.hulaRouter.Neighbours)
 		},
 	})
 	if err != nil {
