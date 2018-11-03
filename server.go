@@ -35,6 +35,7 @@ import (
 	"github.com/roasbeef/btcd/wire"
 	"github.com/roasbeef/btcutil"
 	"github.com/lightningnetwork/lnd/routing/hula"
+	"github.com/lightningnetwork/lnd/routing/multipath"
 )
 
 var (
@@ -120,6 +121,8 @@ type server struct {
 	ripRouter *RIP.RIPRouter
 
 	hulaRouter *hula.HulaRouter
+
+	multiPathRouter *multipath.MultiPathRouter
 
 	authGossiper *discovery.AuthenticatedGossiper
 
@@ -252,13 +255,22 @@ func newServer(listenAddrs []string, chanDB *channeldb.DB, cc *chainControl,
 		ExtractErrorEncrypter:  s.sphinx.ExtractErrorEncrypter,
 		FetchLastChannelUpdate: fetchLastChanUpdate(s, serializedPubKey),
 		UpdateRouterNeighbourState: func(key [33]byte, changeType int) {
-			linkChange := &hula.LinkChange{
-				ChangeType:  changeType,
-				NeighbourID: key,
+			if cfg.Router.HulaRouter {
+				linkChange := &hula.LinkChange{
+					ChangeType:  changeType,
+					NeighbourID: key,
+				}
+				s.hulaRouter.LinkChangeBuff <- linkChange
+				srvrLog.Infof("hula neighbor is :%v", s.hulaRouter.Neighbours)
 			}
-			// TODO(xuehan): 修改成可配置的
-			s.hulaRouter.LinkChangeBuff <- linkChange
-			srvrLog.Infof("hula neighbor is :%v", s.hulaRouter.Neighbours)
+			if cfg.Router.MultiPathRouter {
+				linkChange := &multipath.LinkChange{
+					ChangeType:  changeType,
+					NeighbourID: key,
+				}
+				s.multiPathRouter.LinkChangeBuff <- linkChange
+				srvrLog.Infof("multiPathRouter neighbor is :%v", s.hulaRouter.Neighbours)
+			}
 		},
 	})
 	if err != nil {
@@ -620,6 +632,9 @@ func (s *server) Start() error {
 	if cfg.Router.HulaRouter {
 		go s.hulaRouter.Start()
 	}
+	if cfg.Router.MultiPathRouter {
+		go s.multiPathRouter.Start()
+	}
 	// With all the relevant sub-systems started, we'll now attempt to
 	// establish persistent connections to our direct channel collaborators
 	// within the network.
@@ -680,6 +695,10 @@ func (s *server) Stop() error {
 	if cfg.Router.HulaRouter {
 		srvrLog.Debugf("stophula")
 		s.hulaRouter.Stop()
+	}
+	if cfg.Router.MultiPathRouter {
+		srvrLog.Debugf("stop multiPath router")
+		s.multiPathRouter.Stop()
 	}
 	// Disconnect from each active peers to ensure that
 	// peerTerminationWatchers signal completion to each peer.

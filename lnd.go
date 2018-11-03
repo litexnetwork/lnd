@@ -50,6 +50,7 @@ import (
 	"github.com/roasbeef/btcwallet/wallet"
 	"github.com/lightningnetwork/lnd/routing/RIP"
 	"github.com/lightningnetwork/lnd/routing/hula"
+	"github.com/lightningnetwork/lnd/routing/multipath"
 )
 
 const (
@@ -527,7 +528,8 @@ func lndMain() error {
 	}
 
 	if cfg.Router.HulaRouter {
-		server.hulaRouter = hula.NewHulaRouter(server.chanDB, selfNodeKey, server.currentNodeAnn.Addresses)
+		server.hulaRouter = hula.NewHulaRouter(server.chanDB,
+			selfNodeKey, server.currentNodeAnn.Addresses)
 		server.hulaRouter.SendToPeer = server.SendToPeer
 		server.hulaRouter.ConnectToPeer = server.ConnectToPeer
 		server.hulaRouter.DisconnectPeer = server.DisconnectPeer
@@ -537,6 +539,17 @@ func lndMain() error {
 		}
 	}
 
+	if cfg.Router.MultiPathRouter {
+		server.multiPathRouter = multipath.NewMultiPathRouter(server.chanDB,
+			selfNodeKey,server.currentNodeAnn.Addresses)
+		server.multiPathRouter.SendToPeer = server.SendToPeer
+		server.multiPathRouter.ConnectToPeer = server.ConnectToPeer
+		server.multiPathRouter.DisconnectPeer = server.DisconnectPeer
+		server.multiPathRouter.FindPeerByPubStr = func(pubStr string) bool {
+			find, _ := server.FindPeerByPubStr(pubStr)
+			return  find != nil
+		}
+	}
 	// Check macaroon authentication if macaroons aren't disabled.
 	if macaroonService != nil {
 		serverOpts = append(serverOpts,

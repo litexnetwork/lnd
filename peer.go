@@ -909,6 +909,13 @@ out:
 		case *lnwire.HULAResponse:
 			p.server.hulaRouter.ProcessHULAResponseMsg(msg, p.addr)
 
+		case *lnwire.MultiPathProbe:
+			p.server.multiPathRouter.ProcessMultiPathUpdateMsg(msg, p.addr)
+		case *lnwire.MultiPathRequest:
+			p.server.multiPathRouter.ProcessMultiPathRequestMsg(msg, p.addr)
+		case *lnwire.MultiPathResponse:
+			p.server.multiPathRouter.ProcessMultiPathResponseMsg(msg, p.addr)
+
 		default:
 			peerLog.Errorf("unknown message %v received from peer "+
 				"%v", uint16(msg.MsgType()), p)

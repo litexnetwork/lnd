@@ -55,6 +55,9 @@ const (
 	MsgHULAProbe                           = 515
 	MsgHULARequest                         = 516
 	MsgHULAResponse                        = 517
+	MsgMultiPathProbe					   = 518
+	MsgMultiPathRequest					   = 519
+	MsgMultiPathResponse				   = 520
 )
 
 // String return the string representation of message type.
@@ -118,6 +121,12 @@ func (t MessageType) String() string {
 		return "HULARequest"
 	case MsgHULAResponse:
 		return "HULAResponse"
+	case MsgMultiPathProbe:
+		return "MultiPathProbe"
+	case MsgMultiPathRequest:
+		return "MultiPathRequest"
+	case MsgMultiPathResponse:
+		return "MultiPathResponse"
 	default:
 		return "<unknown>"
 	}
@@ -221,6 +230,12 @@ func makeEmptyMessage(msgType MessageType) (Message, error) {
 		msg = &HULARequest{}
 	case MsgHULAResponse:
 		msg = &HULAResponse{}
+	case MsgMultiPathProbe:
+		msg = &MultiPathProbe{}
+	case MsgMultiPathRequest:
+		msg = &MultiPathRequest{}
+	case MsgMultiPathResponse:
+		msg = &MultiPathResponse{}
 	default:
 		return nil, &UnknownMessage{msgType}
 	}

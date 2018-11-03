@@ -161,13 +161,6 @@ func (r *HulaRouter) sendProbe() {
 				neighbour, err)
 		}
 	}
-//	probe := &lnwire.HULAProbe{
-//		Distance: 0,
-//		Destination: r.SelfNode,
-//		UpperHop:r.SelfNode,
-//	}
-//	hulaLog.Infof("hula neighbour is %v", r.Neighbours)
-//	hulaLog.Infof("send new probe  :%v to neighbours", probe)
 }
 
 func (r *HulaRouter) FindPath(dest [33]byte, amt btcutil.Amount) (

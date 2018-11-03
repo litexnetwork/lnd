@@ -23,6 +23,7 @@ import (
 	"github.com/lightningnetwork/lnd/routing/RIP"
 	"github.com/lightningnetwork/lnd/routing/hula"
 	"github.com/roasbeef/btcd/connmgr"
+	"github.com/lightningnetwork/lnd/routing/multipath"
 )
 
 // logWriter implements an io.Writer that outputs to both standard output and
@@ -78,6 +79,7 @@ var (
 	sphxLog = backendLog.Logger("SPHX")
 	ripnLog = backendLog.Logger("RIPN")
 	hulaLog = backendLog.Logger("HULA")
+	multLog = backendLog.Logger("MULT")
 )
 
 // Initialize package-global logger variables.
@@ -95,6 +97,7 @@ func init() {
 	sphinx.UseLogger(sphxLog)
 	RIP.UseLogger(ripnLog)
 	hula.UseLogger(hulaLog)
+	multipath.UseLogger(multLog)
 }
 
 // subsystemLoggers maps each subsystem identifier to its associated logger.
@@ -119,6 +122,7 @@ var subsystemLoggers = map[string]btclog.Logger{
 	"SPHX": sphxLog,
 	"RIPN": ripnLog,
 	"HULA": hulaLog,
+	"MULT": multLog,
 }
 
 // initLogRotator initializes the logging rotator to write logs to logFile and
