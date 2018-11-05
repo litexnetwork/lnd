@@ -3071,6 +3071,7 @@ func testMultiHopPayments(net *lntest.NetworkHarness, t *harnessTest) {
 		}
 	}
 
+	time.Sleep(time.Second * 10)
 	// Create 5 invoices for Bob, which expect a payment from Carol for 1k
 	// satoshis with a different preimage each time.
 	const numPayments = 5
@@ -10731,12 +10732,7 @@ func TestLightningNetworkDaemon(t *testing.T) {
 			lndHarness.OnTxAccepted(hash)
 		},
 	}
-	// 设置一个router的参数，表示使用哪个router, 默认是不使用自己的router
-	// "--riprouter"
-	// "--hularouter"
-	// ......
 
-	// uncomment me! args = append(args, "--hularouter")
 	btcdHarness, err := rpctest.New(harnessNetParams, handlers, args)
 	if err != nil {
 		ht.Fatalf("unable to create mining node: %v", err)

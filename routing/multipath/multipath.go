@@ -13,14 +13,15 @@ import (
 	"sync"
 	"time"
 	"math"
+	"github.com/davecgh/go-spew/spew"
 )
 
 type RouterID [33]byte
 
 const (
 	FindPathMaxDelay = 3
-	UpdateWindow     = 3
-	ProbeSendCycle   = 3
+	UpdateWindow     = 1
+	ProbeSendCycle   = 1
 	ClearCycle 		 = 10
 	BufferSize 		 = 1000
 )
@@ -121,7 +122,7 @@ func (r *MultiPathRouter) Stop() {
 }
 func (r *MultiPathRouter) sendProbe() {
 	for neighbour := range r.Neighbours{
-		probe := &lnwire.HULAProbe{
+		probe := &lnwire.MultiPathProbe{
 			Destination: r.SelfNode,
 			Distance: 0,
 			UpperHop: r.SelfNode,
@@ -181,7 +182,7 @@ func (r *MultiPathRouter) handleProbe(msg *MultiPathProbeMsg) {
 	// 如果probe的目的地是当前节点，所以
 	p := msg.msg
 	if bytes.Equal(p.Destination[:], r.SelfNode[:]) {
-		multiPathLog.Infof("recieved a probe generated from self: %v", p)
+	//	multiPathLog.Infof("recieved a probe generated from self: %v", p)
 		return
 	}
 
@@ -333,7 +334,6 @@ func (r *MultiPathRouter) handleRequest(req *MultiPathRequestMsg) {
 		}
 		err = r.SendToPeer(req.addr.IdentityKey, multiPathResponse)
 		multiPathLog.Infof("发送response：%v 到： %v", multiPathResponse, req.addr.IdentityKey)
-		r.mu.Unlock()
 		return
 
 	} else if entry, ok := r.BestRoutingTable[dest]; ok {
@@ -399,6 +399,11 @@ func (r *MultiPathRouter) handleResponse(msg *MultiPathResponseMsg) {
 			return
 		}
 	} else {
+		multiPathLog.Debugf("response: %v",
+			newLogClosure(func() string {
+				return spew.Sdump(res)
+			}),
+		)
 		for i, node := range res.PathNodes {
 			if bytes.Equal(node[:], r.SelfNode[:]) {
 				nodeKey, err := btcec.ParsePubKey(res.PathNodes[i-1][:], btcec.S256())
@@ -418,7 +423,7 @@ func (r *MultiPathRouter) handleResponse(msg *MultiPathResponseMsg) {
 
 func (r *MultiPathRouter) handleLinkChange(change *LinkChange) {
 	// if this is an add type, we solve the change.
-	multiPathLog.Infof("hula router recieve linkchange %v", change)
+	multiPathLog.Infof("multipath router recieve linkchange %v", change)
 	if change.ChangeType == 1 {
 		r.rwMu.Lock()
 		r.Neighbours[change.NeighbourID] = struct{}{}
@@ -485,6 +490,9 @@ func (r *MultiPathRouter) FindPath(dest [33]byte, amt btcutil.Amount) (
 	}
 	requestID := []byte(routing.GenRequestID(string(r.SelfNode[:])))
 	copy(multiPathRequest.RequestID[:], requestID)
+	multiPathRequest.PathNodes = append(multiPathRequest.PathNodes, r.SelfNode)
+	multiPathRequest.PathChannels = append(multiPathRequest.PathChannels, wire.OutPoint{})
+
 	multiPathLog.Infof("new hualRequest is :%v", multiPathRequest)
 
 	r.mu.Lock()
@@ -513,7 +521,7 @@ func (r *MultiPathRouter) FindPath(dest [33]byte, amt btcutil.Amount) (
 		r.mu.Lock()
 		delete(r.RequestPool, string(requestID))
 		r.mu.Unlock()
-		multiPathLog.Infof("hula findPath time out, the requestID is :%v \n", requestID)
+		multiPathLog.Infof("multipath router findPath time out, the requestID is :%v \n", requestID)
 		return nil, nil, fmt.Errorf("timeout for the routing path\n")
 	}
 	return nil, nil, nil
@@ -538,7 +546,7 @@ type MultiPathResponseMsg struct {
 // update router table.
 func (r *MultiPathRouter) ProcessMultiPathUpdateMsg(msg *lnwire.MultiPathProbe,
 	peerAddress *lnwire.NetAddress) {
-	multiPathLog.Infof("recieved the multiPath probe :%v from %v", msg, peerAddress)
+	//multiPathLog.Infof("recieved the multiPath probe :%v from %v", msg, peerAddress)
 	select {
 	case r.ProbeBuffer <- &MultiPathProbeMsg{msg, peerAddress}:
 	case <-r.quit:
@@ -550,7 +558,7 @@ func (r *MultiPathRouter) ProcessMultiPathUpdateMsg(msg *lnwire.MultiPathProbe,
 // update router table.
 func (r *MultiPathRouter) ProcessMultiPathRequestMsg(msg *lnwire.MultiPathRequest,
 	peerAddress *lnwire.NetAddress) {
-	multiPathLog.Infof("recieved the multiPath request:%v from %v", msg, peerAddress)
+//	multiPathLog.Infof("recieved the multiPath request:%v from %v", msg, peerAddress)
 	select {
 	case r.RequestBuffer <- &MultiPathRequestMsg{msg, peerAddress}:
 	case <-r.quit:
@@ -563,7 +571,7 @@ func (r *MultiPathRouter) ProcessMultiPathRequestMsg(msg *lnwire.MultiPathReques
 func (r *MultiPathRouter) ProcessMultiPathResponseMsg(msg *lnwire.MultiPathResponse,
 	peerAddress *lnwire.NetAddress) {
 
-	multiPathLog.Infof("recieved the multiPath response:%v from %v", msg, peerAddress)
+//	multiPathLog.Infof("recieved the multiPath response:%v from %v", msg, peerAddress)
 	select {
 	case r.ResponseBuffer <- &MultiPathResponseMsg{msg, peerAddress}:
 	case <-r.quit:

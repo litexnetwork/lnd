@@ -261,7 +261,7 @@ func newServer(listenAddrs []string, chanDB *channeldb.DB, cc *chainControl,
 					NeighbourID: key,
 				}
 				s.hulaRouter.LinkChangeBuff <- linkChange
-				srvrLog.Infof("hula neighbor is :%v", s.hulaRouter.Neighbours)
+				srvrLog.Infof("hula neighbor  is :%v", s.hulaRouter.Neighbours)
 			}
 			if cfg.Router.MultiPathRouter {
 				linkChange := &multipath.LinkChange{
@@ -269,7 +269,7 @@ func newServer(listenAddrs []string, chanDB *channeldb.DB, cc *chainControl,
 					NeighbourID: key,
 				}
 				s.multiPathRouter.LinkChangeBuff <- linkChange
-				srvrLog.Infof("multiPathRouter neighbor is :%v", s.hulaRouter.Neighbours)
+				srvrLog.Infof("multiPathRouter neighbor is :%v", s.multiPathRouter.Neighbours)
 			}
 		},
 	})
@@ -633,6 +633,7 @@ func (s *server) Start() error {
 		go s.hulaRouter.Start()
 	}
 	if cfg.Router.MultiPathRouter {
+		ltndLog.Debugf("multipath router start")
 		go s.multiPathRouter.Start()
 	}
 	// With all the relevant sub-systems started, we'll now attempt to

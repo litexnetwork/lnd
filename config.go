@@ -237,10 +237,13 @@ func loadConfig() (*config, error) {
 		InvoiceMacPath: defaultInvoiceMacPath,
 		ReadMacPath:    defaultReadMacPath,
 		LogDir:         defaultLogDir,
+
+		//TODO(xuehan): If you want to test other router,
+		// please modify this config.
 		Router:			&routerConfig{
 			RipRouter: false,
 			HulaRouter: false,
-			MultiPathRouter: false,
+			MultiPathRouter: true,
 		},
 		MaxLogFiles:    defaultMaxLogFiles,
 		MaxLogFileSize: defaultMaxLogFileSize,

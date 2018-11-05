@@ -1669,6 +1669,7 @@ func (r *ChannelRouter) SendPayment(payment *LightningPayment) ([32]byte, *Route
 			// control, which will incorporate the current best known state
 			// of the channel graph and our past HTLC routing
 			// successes/failures.
+			log.Debugf("DV failed")
 			route, err = paySession.RequestRoute(
 				payment, uint32(currentHeight), finalCLTVDelta,
 			)

@@ -549,6 +549,7 @@ func lndMain() error {
 			find, _ := server.FindPeerByPubStr(pubStr)
 			return  find != nil
 		}
+		ltndLog.Debugf("multipath router created")
 	}
 	// Check macaroon authentication if macaroons aren't disabled.
 	if macaroonService != nil {

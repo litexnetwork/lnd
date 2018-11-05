@@ -2226,6 +2226,20 @@ func (r *rpcServer) SendPayment(paymentStream lnrpc.Lightning_SendPaymentServer)
 					pathChannels, pathNodes, err = r.server.hulaRouter.FindPath(
 						destForRouter,p.msat.ToSatoshis())
 				}
+				if cfg.Router.MultiPathRouter {
+					pathChannels, pathNodes, err = r.server.multiPathRouter.FindPath(destForRouter,
+						p.msat.ToSatoshis())
+					if err != nil {
+						rpcsLog.Debugf("multipath router error :%v ", err)
+					}
+					// As we add the source node id and an empty channel point into
+					// request, which have been copied into the response, we need to
+					// remove the first nodeID and channel out point.
+					pathChannels = pathChannels[1:]
+					pathNodes = pathNodes[1:]
+					rpcsLog.Debugf("multipath router channels & nodes: %v, %v",
+						pathChannels,pathChannels)
+				}
 				if err == nil {
 					payment.PathNodes = pathNodes
 					payment.PathChannels = pathChannels
