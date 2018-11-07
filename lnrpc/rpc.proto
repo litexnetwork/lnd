@@ -646,6 +646,14 @@ message SendResponse {
     Route payment_route = 3 [json_name = "payment_route"];
 }
 
+message SendMultiRequest {
+    repeated string payment_request = 1;
+}
+
+message SendMultiResponse {
+    repeated SendResponse payment_response = 1 [json_name = "payment_response"];
+}
+
 message ChannelPoint {
     oneof funding_txid {
         /// Txid of the funding transaction

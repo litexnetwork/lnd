@@ -2227,18 +2227,32 @@ func (r *rpcServer) SendPayment(paymentStream lnrpc.Lightning_SendPaymentServer)
 						destForRouter,p.msat.ToSatoshis())
 				}
 				if cfg.Router.MultiPathRouter {
-					pathChannels, pathNodes, err = r.server.multiPathRouter.FindPath(destForRouter,
+					allPathChannels, allPathNodes, err := r.server.multiPathRouter.FindPath(destForRouter,
 						p.msat.ToSatoshis())
 					if err != nil {
 						rpcsLog.Debugf("multipath router error :%v ", err)
+						if err != nil {
+							// If we receive payment error than,
+							// instead of terminating the stream,
+							// send error response to the user.
+							err := paymentStream.Send(&lnrpc.SendResponse{
+								PaymentError: err.Error(),
+							})
+							if err != nil {
+								errChan <- err
+							}
+							return
+						}
 					}
 					// As we add the source node id and an empty channel point into
 					// request, which have been copied into the response, we need to
 					// remove the first nodeID and channel out point.
-					pathChannels = pathChannels[1:]
-					pathNodes = pathNodes[1:]
+
+					// TODO(xuehan): now we just use the first route. try send many.
+					pathChannels = allPathChannels[0][1:]
+					pathNodes = allPathNodes[0][1:]
 					rpcsLog.Debugf("multipath router channels & nodes: %v, %v",
-						pathChannels,pathChannels)
+						pathChannels,pathNodes)
 				}
 				if err == nil {
 					payment.PathNodes = pathNodes

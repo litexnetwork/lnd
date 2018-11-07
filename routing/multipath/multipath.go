@@ -90,22 +90,22 @@ func (r *MultiPathRouter) Start() {
 	for {
 		select {
 		case linkChange := <-r.LinkChangeBuff:
-			go r.handleLinkChange(linkChange)
+			r.handleLinkChange(linkChange)
 
 		case probe := <-r.ProbeBuffer:
-			go r.handleProbe(probe)
+			r.handleProbe(probe)
 
 		case request := <-r.RequestBuffer:
-			go r.handleRequest(request)
+			r.handleRequest(request)
 
 		case response := <-r.ResponseBuffer:
-			go r.handleResponse(response)
+			r.handleResponse(response)
 
 		case <-r.ClearTimer.C:
-			go r.clearEntry()
+			r.clearEntry()
 
 		case <-r.SendTimer.C:
-			go r.sendProbe()
+			r.sendProbe()
 
 		case <-r.quit:
 			return
@@ -293,6 +293,11 @@ func (r *MultiPathRouter) handleRequest(req *MultiPathRequestMsg) {
 	msg := req.msg
 	dest := msg.DestNodeID
 
+	for _, node := range msg.PathNodes {
+		if bytes.Equal(node[:], r.SelfNode[:]) {
+			return
+		}
+	}
 	if bytes.Equal(dest[:], r.SelfNode[:]) {
 		multiPathLog.Infof("get destination, begin send response")
 		multiPathResponse := &lnwire.MultiPathResponse{
@@ -364,6 +369,31 @@ func (r *MultiPathRouter) handleRequest(req *MultiPathRequestMsg) {
 		if err != nil {
 			multiPathLog.Errorf("cann't parse the key :%v", entry.bestHop)
 			return
+		}
+
+		// If there are more than 2 enties in the routing table, we
+		// send the request to minimum 2 neighbours
+		if len(r.RoutingTable[msg.DestNodeID]) >= 2 {
+			leftMap := copyMap(r.RoutingTable[msg.DestNodeID])
+			delete(leftMap, entry.bestHop)
+
+			minDis := uint8(math.MaxUint8)
+			minNeigh := [33]byte{}
+			for neigh, distance := range leftMap{
+				if distance < minDis{
+					copy(minNeigh[:], neigh[:])
+					minDis = distance
+				}
+			}
+			peerPubKey2, err := btcec.ParsePubKey(minNeigh[:], btcec.S256())
+			if err != nil {
+				multiPathLog.Errorf("cann't parse the key :%v", minNeigh)
+				return
+			}
+			err = r.SendToPeer(peerPubKey2, msg)
+			if err != nil {
+				multiPathLog.Errorf("send requet to %v failed :%v", msg, minNeigh)
+			}
 		}
 		err = r.SendToPeer(peerPubKey, msg)
 		multiPathLog.Infof("send the multiPath request to nextHop :%v", peerPubKey)
@@ -476,7 +506,7 @@ func (r *MultiPathRouter) handleLinkChange(change *LinkChange) {
 }
 
 func (r *MultiPathRouter) FindPath(dest [33]byte, amt btcutil.Amount) (
-	[]wire.OutPoint, [][33]byte, error) {
+	[][]wire.OutPoint,[][][33]byte, error) {
 	r.rwMu.RLock()
 	entry, ok := r.BestRoutingTable[dest]
 	r.rwMu.RUnlock()
@@ -500,31 +530,59 @@ func (r *MultiPathRouter) FindPath(dest [33]byte, amt btcutil.Amount) (
 	r.mu.Unlock()
 	multiPathLog.Infof("添加到requestPool")
 
+	defer func() {
+		r.mu.Lock()
+		delete(r.RequestPool, string(requestID))
+		r.mu.Unlock()
+	}()
+
+	// If there are more than 2 enties in the routing table, we
+	// send the request to minimum 2 neighbours
+	if len(r.RoutingTable[dest]) >= 2 {
+		leftMap := copyMap(r.RoutingTable[dest])
+		delete(leftMap, entry.bestHop)
+
+		minDis := uint8(math.MaxUint8)
+		minNeigh := [33]byte{}
+		for neigh, distance := range leftMap{
+			if distance < minDis{
+				copy(minNeigh[:], neigh[:])
+				minDis = distance
+			}
+		}
+		peerPubKey2, err := btcec.ParsePubKey(minNeigh[:], btcec.S256())
+		if err != nil {
+			multiPathLog.Errorf("cann't parse the key :%v", minNeigh)
+		}
+		err = r.SendToPeer(peerPubKey2, multiPathRequest)
+		if err != nil {
+			multiPathLog.Errorf("send requet to %v failed :%v",
+				multiPathRequest, minNeigh)
+		}
+	}
 	nextNodeKye, err := btcec.ParsePubKey(entry.bestHop[:], btcec.S256())
 	if err != nil {
 		return nil, nil, err
 	}
-	multiPathLog.Infof("send the multiPathReqest: %v to nextHop: %v\n",
-		multiPathRequest, nextNodeKye)
 	err = r.SendToPeer(nextNodeKye, multiPathRequest)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	select {
-	case response := <-r.RequestPool[string(requestID)]:
-		multiPathLog.Infof("recieved the multiPathResponse: %v ", response)
-		delete(r.RequestPool, string(requestID))
-		return response.PathChannels, response.PathNodes, nil
-	case <-time.After(FindPathMaxDelay * time.Second):
-		// if timeout, remove the channel from requestPool.
-		r.mu.Lock()
-		delete(r.RequestPool, string(requestID))
-		r.mu.Unlock()
-		multiPathLog.Infof("multipath router findPath time out, the requestID is :%v \n", requestID)
-		return nil, nil, fmt.Errorf("timeout for the routing path\n")
+	resultChannels := make([][]wire.OutPoint,0)
+	resultNodes := make([][][33]byte,0)
+	for {
+		select {
+		case response := <-r.RequestPool[string(requestID)]:
+			resultChannels = append(resultChannels, response.PathChannels)
+			resultNodes = append(resultNodes, response.PathNodes)
+		case <-time.After(FindPathMaxDelay * time.Second):
+			if len(resultChannels) >= 1 {
+				return resultChannels, resultNodes, nil
+			}
+			return nil, nil, fmt.Errorf("timeout for the routing path\n")
+		}
 	}
-	return nil, nil, nil
 }
 
 type MultiPathProbeMsg struct {
@@ -578,3 +636,13 @@ func (r *MultiPathRouter) ProcessMultiPathResponseMsg(msg *lnwire.MultiPathRespo
 		return
 	}
 }
+
+func copyMap(m map[RouterID]uint8) map[RouterID]uint8 {
+	result := make(map[RouterID]uint8)
+	for key, value := range m {
+		result[key] = value
+	}
+	return result
+}
+
+
