@@ -298,6 +298,11 @@ func (r *MultiPathRouter) handleRequest(req *MultiPathRequestMsg) {
 			return
 		}
 	}
+	multiPathLog.Debugf("RoutingTable: %v",
+		newLogClosure(func() string {
+			return spew.Sdump(r.RoutingTable)
+		}),
+	)
 	if bytes.Equal(dest[:], r.SelfNode[:]) {
 		multiPathLog.Infof("get destination, begin send response")
 		multiPathResponse := &lnwire.MultiPathResponse{
@@ -420,8 +425,10 @@ func (r *MultiPathRouter) handleResponse(msg *MultiPathResponseMsg) {
 	// 说明response已经回到了发起节点
 	if bytes.Equal(res.PathNodes[0][:], r.SelfNode[:]) {
 		if res.Success == 1 {
-			r.RequestPool[string(res.RequestID[:])] <- *res
-			multiPathLog.Infof("successfully recieved a payment response")
+			if _, ok := r.RequestPool[string(res.RequestID[:])]; ok {
+				r.RequestPool[string(res.RequestID[:])] <- *res
+				multiPathLog.Infof("successfully recieved a payment response")
+			}
 			return
 		} else {
 			// TODO(xuehan): show the reason and the other detail.

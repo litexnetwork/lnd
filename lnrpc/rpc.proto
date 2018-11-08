@@ -359,7 +359,12 @@ service Lightning {
     Lightning Network with a single persistent connection.
     */
     rpc SendPayment (stream SendRequest) returns (stream SendResponse);
-    
+
+    /** lncli: `sendmanypayments`
+    一次性发送多个payments，双向的rpc
+    */
+    rpc SendMultiPaymentsSync (SendMultiRequest) returns (SendMultiResponse);
+
     /** lncli: `addfund`
     AddFund attempts to add funds to the existsting channel, of which balance is
     not balance.
@@ -646,12 +651,19 @@ message SendResponse {
     Route payment_route = 3 [json_name = "payment_route"];
 }
 
+message SendResponseWithHash {
+    bytes r_hash = 1 [json_name = "r_hash"];
+    string payment_error = 2 [json_name = "payment_error"];
+    bytes payment_preimage = 3 [json_name = "payment_preimage"];
+    Route payment_route = 4 [json_name = "payment_route"];
+}
 message SendMultiRequest {
     repeated string payment_request = 1;
 }
 
 message SendMultiResponse {
-    repeated SendResponse payment_response = 1 [json_name = "payment_response"];
+    repeated SendResponseWithHash payment_response = 1 [json_name = "payment_response"];
+    string payment_error = 2 [json_name = "payment_error"];
 }
 
 message ChannelPoint {

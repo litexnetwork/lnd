@@ -1898,6 +1898,59 @@ var sendPaymentCommand = cli.Command{
 	Action: sendPayment,
 }
 
+var sendMultiPaymentCommand = cli.Command{
+	Name:     "sendmultipayment",
+	Category: "Payments",
+	Usage:    "Send a payment over lightning.",
+	Description: `
+	Send a payment over Lightning. One can either specify the full
+	parameters of the payment, or just use a payment request which encodes
+	all the payment details.
+
+	If payment isn't manually specified, then only a payment request needs
+	to be passed using the --pay_req argument.
+
+	If the payment *is* manually specified, then all four alternative
+	arguments need to be specified in order to complete the payment:
+	    * --dest=N
+	    * --amt=A
+	    * --final_cltv_delta=T
+	    * --payment_hash=H
+
+	The --debug_send flag is provided for usage *purely* in test
+	environments. If specified, then the payment hash isn't required, as
+	it'll use the hash of all zeroes. This mode allows one to quickly test
+	payment connectivity without having to create an invoice at the
+	destination.
+	`,
+	ArgsUsage: "dest amt payment_hash final_cltv_delta | --pay_req=[payment request]",
+	Flags: []cli.Flag{
+		cli.StringSliceFlag{
+			Name:  "pay_reqs",
+			Usage: "a zpay32 encoded payment request to fulfill",
+		},
+	},
+	Action: sendMultiPayments,
+}
+
+func sendMultiPayments(ctx *cli.Context) error {
+	// Show command help if no arguments provided
+	if ctx.NArg() == 0 && ctx.NumFlags() == 0 {
+		cli.ShowCommandHelp(ctx, "sendmultipayment")
+		return nil
+	}
+
+	var req *lnrpc.SendMultiRequest
+	if ctx.IsSet("pay_reqs") {
+		req = &lnrpc.SendMultiRequest{
+			PaymentRequest: ctx.StringSlice("pay_reqs"),
+		}
+	} else {
+		return fmt.Errorf("please input the payment requests.")
+	}
+	return sendMultiPaymentRequest(ctx, req)
+}
+
 func sendPayment(ctx *cli.Context) error {
 	// Show command help if no arguments provided
 	if ctx.NArg() == 0 && ctx.NumFlags() == 0 {
@@ -2022,6 +2075,26 @@ func sendPaymentRequest(ctx *cli.Context, req *lnrpc.SendRequest) error {
 		R: resp.PaymentRoute,
 	})
 
+	return nil
+}
+
+func sendMultiPaymentRequest(ctx *cli.Context, req *lnrpc.SendMultiRequest) error {
+	client, cleanUp := getClient(ctx)
+	defer cleanUp()
+
+	res, err := client.SendMultiPaymentsSync(context.Background(), req)
+	if err != nil {
+		return err
+	}
+
+	printJSON(struct {
+		E string       							`json:"payment_error"`
+		P []*lnrpc.SendResponseWithHash       	`json:"payment_responses"`
+
+	}{
+		E: res.PaymentError,
+		P: res.PaymentResponse,
+	})
 	return nil
 }
 
