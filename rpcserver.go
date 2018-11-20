@@ -1070,11 +1070,11 @@ func (r *rpcServer) CloseChannel(in *lnrpc.CloseChannelRequest,
 	}
 	channel.Stop()
 
-//	var neighbourID [33]byte
-//	copy(neighbourID[:], channel.State().IdentityPub.SerializeCompressed())
-//	if RIPOPEN {
-//		r.server.fundingMgr.cfg.UpdateRipRouter(RIP.LINK_REMOVE, neighbourID)
-//	}
+	//	var neighbourID [33]byte
+	//	copy(neighbourID[:], channel.State().IdentityPub.SerializeCompressed())
+	//	if RIPOPEN {
+	//		r.server.fundingMgr.cfg.UpdateRipRouter(RIP.LINK_REMOVE, neighbourID)
+	//	}
 	// If a force closure was requested, then we'll handle all the details
 	// around the creation and broadcast of the unilateral closure
 	// transaction here rather than going to the switch as we don't require
@@ -2219,20 +2219,20 @@ func (r *rpcServer) SendPayment(paymentStream lnrpc.Lightning_SendPaymentServer)
 				// payment.
 				var (
 					destForRouter [33]byte
-					pathChannels []wire.OutPoint
-					pathNodes 	 [][33]byte
-					)
+					pathChannels  []wire.OutPoint
+					pathNodes     [][33]byte
+				)
 				copy(destForRouter[:], destNode.SerializeCompressed())
 				if cfg.Router.RipRouter {
 					pathChannels, pathNodes, err = r.server.ripRouter.FindPath(destForRouter)
 				}
 				if cfg.Router.HulaRouter {
 					pathChannels, pathNodes, err = r.server.hulaRouter.FindPath(
-						destForRouter,p.msat.ToSatoshis())
+						destForRouter, p.msat.ToSatoshis())
 				}
 				if cfg.Router.MultiPathRouter {
 					allPathChannels, allPathNodes, err := r.server.multiPathRouter.FindPath(destForRouter,
-						p.msat.ToSatoshis())
+						p.msat.ToSatoshis(), nil)
 					if err != nil {
 						rpcsLog.Debugf("multipath router error :%v ", err)
 						if err != nil {
@@ -2256,7 +2256,7 @@ func (r *rpcServer) SendPayment(paymentStream lnrpc.Lightning_SendPaymentServer)
 					pathChannels = allPathChannels[0][1:]
 					pathNodes = allPathNodes[0][1:]
 					rpcsLog.Debugf("multipath router channels & nodes: %v, %v",
-						pathChannels,pathNodes)
+						pathChannels, pathNodes)
 				}
 				if err == nil {
 					payment.PathNodes = pathNodes
@@ -2296,8 +2296,8 @@ func (r *rpcServer) SendPayment(paymentStream lnrpc.Lightning_SendPaymentServer)
 	}
 }
 
-func (r *rpcServer) SendMultiPaymentsSync (ctx context.Context,
-	nextPayment *lnrpc.SendMultiRequest) ( *lnrpc.SendMultiResponse, error) {
+func (r *rpcServer) SendMultiPaymentsSync(ctx context.Context,
+	nextPayment *lnrpc.SendMultiRequest) (*lnrpc.SendMultiResponse, error) {
 
 	// We don't allow payments to be sent while the daemon itself is still
 	// syncing as we may be trying to sent a payment over a "stale"
@@ -2306,18 +2306,92 @@ func (r *rpcServer) SendMultiPaymentsSync (ctx context.Context,
 		return nil, fmt.Errorf("chain backend is still syncing, server " +
 			"not active yet")
 	}
-	// TODO(xuehan): fix it.
-	reqStrings := strings.Split(nextPayment.PaymentRequest[0], ",")
-	paymentLen := len(reqStrings)
-	if paymentLen == 0 {
-		return nil, fmt.Errorf("the length of pay_req is 0")
-	}
-	rpcsLog.Debugf("payments 长度为:%v", paymentLen)
-	rpcsLog.Debugf("payments 为:%v", nextPayment.PaymentRequest)
-	payments := make([]routing.LightningPayment, 0)
-	for _, rawPayReq := range reqStrings {
 
-		payReq, err := zpay32.Decode(rawPayReq,
+	if !cfg.Router.MultiPathRouter {
+		return nil, fmt.Errorf("multipath router is not running")
+	}
+
+	if nextPayment.Address == nil {
+		return nil, fmt.Errorf("need: lnc pubkeyhash@hostname")
+	}
+
+	pubkeyHex, err := hex.DecodeString(nextPayment.Address.Pubkey)
+	if err != nil {
+		return nil, err
+	}
+	pubKey, err := btcec.ParsePubKey(pubkeyHex, btcec.S256())
+	if err != nil {
+		return nil, err
+	}
+
+	// Connections to ourselves are disallowed for obvious reasons.
+	if pubKey.IsEqual(r.server.identityPriv.PubKey()) {
+		return nil, fmt.Errorf("cannot make connection to self")
+	}
+
+	// If the address doesn't already have a port, we'll assume the current
+	// default port.
+	var addr string
+	_, _, err = net.SplitHostPort(nextPayment.Address.Host)
+	if err != nil {
+		addr = net.JoinHostPort(nextPayment.Address.Host, strconv.Itoa(defaultPeerPort))
+	} else {
+		addr = nextPayment.Address.Host
+	}
+
+	// We use ResolveTCPAddr here in case we wish to resolve hosts over Tor.
+	host, err := cfg.net.ResolveTCPAddr("tcp", addr)
+	if err != nil {
+		return nil, err
+	}
+
+	peerAddr := &lnwire.NetAddress{
+		IdentityKey: pubKey,
+		Address:     host,
+		ChainNet:    activeNetParams.Net,
+	}
+	var destAddress [33]byte
+	copy(destAddress[:], pubkeyHex)
+	requestIDString := routing.GenRequestID(string(r.server.identityPriv.PubKey().
+		SerializeCompressed()))
+	rpcsLog.Debugf("requestID is :%v", requestIDString)
+	allPathChannels, allPathNodes, err := r.server.multiPathRouter.FindPath(destAddress,
+		btcutil.Amount(nextPayment.Amt), []byte(requestIDString))
+	if err != nil {
+		rpcsLog.Debugf("multipath router error :%v ", err)
+		return &lnrpc.SendMultiResponse{
+			PaymentError: "cann't find the path",
+		}, err
+	}
+
+	payNumSet := int(nextPayment.PathNum)
+	payNumChosen := payNumSet
+
+	if payNumSet != 0{
+		if len(allPathChannels) < int(payNumSet) {
+			return &lnrpc.SendMultiResponse{
+				PaymentError: "the payment number set is bigger than found",
+			}, nil
+		}
+	} else {
+		payNumChosen = len(allPathChannels)
+	}
+
+	// TODO(xuehan): 这里应该增加一个筛选路径的过程， 目前我们将所有路径都用到，或者
+	// 是用找到的前N个，N是用户设置的路径数目
+
+	var requestID [33]byte
+	copy(requestID[:], []byte(requestIDString))
+	// TODO(xuehan):
+	payReqs, err := r.server.multiPathRouter.PullInvoices(peerAddr, btcutil.Amount(nextPayment.Amt),
+		uint8(payNumChosen), requestID)
+	if err != nil {
+		return nil, err
+	}
+
+	payments := make([]routing.LightningPayment, 0)
+	for _, rawPayReq := range payReqs {
+		payReq, err := zpay32.Decode(string(rawPayReq),
 			activeNetParams.Params)
 		if err != nil {
 			return nil, err
@@ -2328,14 +2402,14 @@ func (r *rpcServer) SendMultiPaymentsSync (ctx context.Context,
 			return nil, err
 		}
 		if payReq.MilliSat == nil {
-			return 	nil, fmt.Errorf("pay_request have not set amt")
+			return nil, fmt.Errorf("pay_request have not set amt")
 		} else if *payReq.MilliSat > maxPaymentMSat {
-			err := fmt.Errorf("payment of %v is too large, max payment " +
+			err := fmt.Errorf("payment of %v is too large, max payment "+
 				"allowed is %v", (*payReq.MilliSat).ToSatoshis(), maxPaymentMSat.ToSatoshis())
 			return &lnrpc.SendMultiResponse{
 				PaymentResponse: []*lnrpc.SendResponseWithHash{
 					{
-						RHash: (*payReq.PaymentHash)[:],
+						RHash:        (*payReq.PaymentHash)[:],
 						PaymentError: err.Error(),
 					},
 				},
@@ -2347,74 +2421,56 @@ func (r *rpcServer) SendMultiPaymentsSync (ctx context.Context,
 			PaymentHash: *payReq.PaymentHash,
 			RouteHints:  payReq.RouteHints,
 		}
-		if cltv := uint16(payReq.MinFinalCLTVExpiry()); cltv != 0{
+		if cltv := uint16(payReq.MinFinalCLTVExpiry()); cltv != 0 {
 			lightPayment.FinalCLTVDelta = &cltv
 		}
 		payments = append(payments, lightPayment)
 	}
 
-	if cfg.Router.MultiPathRouter {
-		var	destForRouter [33]byte
-		copy(destForRouter[:], payments[0].Target.SerializeCompressed())
+	rpcsLog.Debugf("路径条数为:%v", len(allPathChannels))
+	rpcsLog.Debugf("payment个数为: %v", len(payments))
 
-		// TODO(xuehan): 目前我们用子账单的数目前去探路。
-		allPathChannels, allPathNodes, err := r.server.multiPathRouter.FindPath(destForRouter,
-			payments[0].Amount.ToSatoshis())
-		if err != nil {
-			rpcsLog.Debugf("multipath router error :%v ", err)
-			return &lnrpc.SendMultiResponse{
-				PaymentError: "cann't find the path",
-			}, err
-		}
-		rpcsLog.Debugf("路径条数为:%v", len(allPathChannels))
-		rpcsLog.Debugf("payment个数为: %v", len(payments))
+	var destForRouter [33]byte
+	copy(destForRouter[:], payments[0].Target.SerializeCompressed())
 
-		// As we add the source node id and an empty channel point into
-		// request, which have been copied into the response, we need to
-		// remove the first nodeID and channel out point.
-		for i := range allPathChannels {
-			allPathChannels[i] = allPathChannels[i][1:]
-			allPathNodes[i] = allPathNodes[i][1:]
-		}
+	// TODO(xuehan): 目前我们用子账单的数目前去探路。
 
-		// Here we go, let's send payment.
-		if len(allPathChannels) < len(payments) {
-			return &lnrpc.SendMultiResponse{
-				PaymentError: "cann't find enough paths",
-			}, nil
-		}
 
-		//TODO(xuehan): 在这里，我们只是按顺序一个个path来使用，后续需要更改完善策略
-		response := &lnrpc.SendMultiResponse{}
-		for i, payment := range payments {
-			payment.PathChannels = allPathChannels[i]
-			payment.PathNodes = allPathNodes[i]
-			srwh := &lnrpc.SendResponseWithHash{
-				RHash: payment.PaymentHash[:],
-			}
-
-			preImage, route, err := r.server.chanRouter.SendPayment(&payment)
-			if err != nil {
-				srwh.PaymentError = err.Error()
-				response.PaymentResponse = append(response.PaymentResponse,
-					srwh)
-			} else {
-				srwh.PaymentPreimage = preImage[:]
-				srwh.PaymentRoute = marshallRoute(route)
-				response.PaymentResponse = append(response.PaymentResponse,
-					srwh)
-				// With the payment completed successfully, we now ave the details of
-				// the completed payment to the database for historical record keeping.
-				if err := r.savePayment(route, payment.Amount, preImage[:]); err != nil {
-					return nil, err
-				}
-			}
-		}
-		return response, nil
+	// As we add the source node id and an empty channel point into
+	// request, which have been copied into the response, we need to
+	// remove the first nodeID and channel out point.
+	for i := range allPathChannels {
+		allPathChannels[i] = allPathChannels[i][1:]
+		allPathNodes[i] = allPathNodes[i][1:]
 	}
-	return  &lnrpc.SendMultiResponse{
-		PaymentError: "multi payment router not open",
-	}, nil
+
+	//TODO(xuehan): 在这里，我们只是按顺序一个个path来使用，后续需要更改完善策略
+	response := &lnrpc.SendMultiResponse{}
+	for i, payment := range payments {
+		payment.PathChannels = allPathChannels[i]
+		payment.PathNodes = allPathNodes[i]
+		srwh := &lnrpc.SendResponseWithHash{
+			RHash: payment.PaymentHash[:],
+		}
+
+		preImage, route, err := r.server.chanRouter.SendPayment(&payment)
+		if err != nil {
+			srwh.PaymentError = err.Error()
+			response.PaymentResponse = append(response.PaymentResponse,
+				srwh)
+		} else {
+			srwh.PaymentPreimage = preImage[:]
+			srwh.PaymentRoute = marshallRoute(route)
+			response.PaymentResponse = append(response.PaymentResponse,
+				srwh)
+			// With the payment completed successfully, we now ave the details of
+			// the completed payment to the database for historical record keeping.
+			if err := r.savePayment(route, payment.Amount, preImage[:]); err != nil {
+				return nil, err
+			}
+		}
+	}
+	return response, nil
 }
 // SendPaymentSync is the synchronous non-streaming version of SendPayment.
 // This RPC is intended to be consumed by clients of the REST proxy.

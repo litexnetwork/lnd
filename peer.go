@@ -915,6 +915,10 @@ out:
 			p.server.multiPathRouter.ProcessMultiPathRequestMsg(msg, p.addr)
 		case *lnwire.MultiPathResponse:
 			p.server.multiPathRouter.ProcessMultiPathResponseMsg(msg, p.addr)
+		case *lnwire.InvoiceRequest:
+			p.server.multiPathRouter.ProcessInvoiceRequestMsg(msg, p.addr)
+		case *lnwire.InvoiceResponse:
+			p.server.multiPathRouter.ProcessInvoiceResponseMsg(msg, p.addr)
 
 		default:
 			peerLog.Errorf("unknown message %v received from peer "+

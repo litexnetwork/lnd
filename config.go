@@ -144,8 +144,8 @@ type torConfig struct {
 }
 
 type routerConfig struct {
-	RipRouter 		bool `long:"riprouter" description:"use the rip router"`
-	HulaRouter		bool `long:"hularouter" description:"use the hula router"`
+	RipRouter       bool `long:"riprouter" description:"use the rip router"`
+	HulaRouter      bool `long:"hularouter" description:"use the hula router"`
 	MultiPathRouter bool `long:"multipathrouter" description:"use the multi-path router"`
 	// TODO(xuehan): add more router
 }
@@ -199,7 +199,7 @@ type config struct {
 
 	Autopilot *autoPilotConfig `group:"autopilot" namespace:"autopilot"`
 
-	Tor *torConfig `group:"Tor" namespace:"tor"`
+	Tor    *torConfig    `group:"Tor" namespace:"tor"`
 	Router *routerConfig `group:"router" namespace:"router"`
 
 	Hodl *hodl.Config `group:"hodl" namespace:"hodl"`
@@ -240,9 +240,9 @@ func loadConfig() (*config, error) {
 
 		//TODO(xuehan): If you want to test other router,
 		// please modify this config.
-		Router:			&routerConfig{
-			RipRouter: false,
-			HulaRouter: false,
+		Router: &routerConfig{
+			RipRouter:       false,
+			HulaRouter:      false,
 			MultiPathRouter: true,
 		},
 		MaxLogFiles:    defaultMaxLogFiles,

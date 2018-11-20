@@ -829,7 +829,6 @@ func testReopenChannel(net *lntest.NetworkHarness, t *harnessTest) {
 	ctxt, _ = context.WithTimeout(ctxb, timeout)
 	closeChannelAndAssert(ctxt, t, net, net.Alice, chanPoint, false)
 
-
 	ctxt, _ = context.WithTimeout(ctxb, timeout)
 	chanPoint = openChannelAndAssert(
 		ctxt, t, net, net.Alice, net.Bob, chanAmt, pushAmt, false,
@@ -3183,14 +3182,14 @@ func testMultiHopPayments(net *lntest.NetworkHarness, t *harnessTest) {
 				event.Fee)
 		}
 	}
-/*
-	ctxt, _ = context.WithTimeout(ctxb, timeout)
-	closeChannelAndAssert(ctxt, t, net, net.Alice, chanPointAlice, false)
-	ctxt, _ = context.WithTimeout(ctxb, timeout)
-	closeChannelAndAssert(ctxt, t, net, dave, chanPointDave, false)
-	ctxt, _ = context.WithTimeout(ctxb, timeout)
-	closeChannelAndAssert(ctxt, t, net, carol, chanPointCarol, false)
-*/
+	/*
+		ctxt, _ = context.WithTimeout(ctxb, timeout)
+		closeChannelAndAssert(ctxt, t, net, net.Alice, chanPointAlice, false)
+		ctxt, _ = context.WithTimeout(ctxb, timeout)
+		closeChannelAndAssert(ctxt, t, net, dave, chanPointDave, false)
+		ctxt, _ = context.WithTimeout(ctxb, timeout)
+		closeChannelAndAssert(ctxt, t, net, carol, chanPointCarol, false)
+	*/
 	// Finally, shutdown the nodes we created for the duration of the
 	// tests, only leaving the two seed nodes (Alice and Bob) within our
 	// test network.

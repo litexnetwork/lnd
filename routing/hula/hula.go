@@ -9,17 +9,17 @@ import (
 	"github.com/roasbeef/btcd/btcec"
 	"github.com/roasbeef/btcd/wire"
 	"github.com/roasbeef/btcutil"
+	"math"
 	"net"
 	"sync"
 	"time"
-	"math"
 )
 
 const (
-	BufferSize     = 1000
-	UpdateWindow   = 3
-	ProbeSendCyble = 1
-	ClearCycle     = 5
+	BufferSize        = 1000
+	UpdateWindow      = 3
+	ProbeSendCyble    = 1
+	ClearCycle        = 5
 	FindPathMmaxDelay = 5
 )
 
@@ -84,6 +84,7 @@ type UpdateTableEntry struct {
 
 	receiveTime int64
 }
+
 // 只能以线程形式启动
 func (r *HulaRouter) Start() {
 	r.wg.Add(1)
@@ -123,26 +124,26 @@ func (r *HulaRouter) Stop() {
 	hulaLog.Infof("hula stopped")
 }
 
-func (r *HulaRouter) clearEntry () {
+func (r *HulaRouter) clearEntry() {
 	r.rwMu.Lock()
 	for key, entry := range r.ProbeUpdateTable {
-		if time.Now().Unix() - entry.receiveTime > ClearCycle ||
-			r.BestHopTable[key].dis == math.MaxInt8{
+		if time.Now().Unix()-entry.receiveTime > ClearCycle ||
+			r.BestHopTable[key].dis == math.MaxInt8 {
 			delete(r.ProbeUpdateTable, key)
-			delete(r.BestHopTable,key)
-			hulaLog.Infof("remove the entry key:%v from updateTable and" +
-				"hopTable",key)
+			delete(r.BestHopTable, key)
+			hulaLog.Infof("remove the entry key:%v from updateTable and"+
+				"hopTable", key)
 		}
 	}
 	r.rwMu.Unlock()
 }
 
 func (r *HulaRouter) sendProbe() {
-	for neighbour := range r.Neighbours{
+	for neighbour := range r.Neighbours {
 		probe := &lnwire.HULAProbe{
 			Destination: r.SelfNode,
-			Distance: 0,
-			UpperHop: r.SelfNode,
+			Distance:    0,
+			UpperHop:    r.SelfNode,
 		}
 		neighbourKey, err := btcec.ParsePubKey(neighbour[:], btcec.S256())
 		if err != nil {
@@ -239,12 +240,12 @@ func (r *HulaRouter) handleLinkChange(change *LinkChange) {
 			delete(r.ProbeUpdateTable, change.NeighbourID)
 			r.rwMu.Unlock()
 
-			for neighbour := range r.Neighbours{
+			for neighbour := range r.Neighbours {
 				probe := &lnwire.HULAProbe{
 					Destination: change.NeighbourID,
-					Distance: math.MaxUint8,
-					UpperHop: r.SelfNode,
-					Capacity: 0,
+					Distance:    math.MaxUint8,
+					UpperHop:    r.SelfNode,
+					Capacity:    0,
 				}
 				neighbourKey, err := btcec.ParsePubKey(neighbour[:], btcec.S256())
 				if err != nil {
@@ -261,25 +262,25 @@ func (r *HulaRouter) handleLinkChange(change *LinkChange) {
 				"to neighbours")
 		}
 	}
-	hulaLog.Infof("hula router solved the linkchange " +
+	hulaLog.Infof("hula router solved the linkchange "+
 		"neighbours is %v", r.Neighbours)
 }
 
 func (r *HulaRouter) handleProbe(p *HULAProbeMsg) error {
-/*
-	hulaLog.Debugf("router is :%v",
-		newLogClosure(func() string {
-			return spew.Sdump(r.BestHopTable)
-		}),
-	)
-*/
+	/*
+		hulaLog.Debugf("router is :%v",
+			newLogClosure(func() string {
+				return spew.Sdump(r.BestHopTable)
+			}),
+		)
+	*/
 	msg := p.msg
 
 	if routing.IfKeyEqual(msg.Destination, r.SelfNode) {
 		return nil
 	}
 	if msg.Distance == math.MaxUint8 {
-		msg.Distance = math.MaxUint8 -1
+		msg.Distance = math.MaxUint8 - 1
 	}
 	r.rwMu.RLock()
 	bestHopEntry, ok := r.BestHopTable[msg.Destination]
@@ -290,11 +291,11 @@ func (r *HulaRouter) handleProbe(p *HULAProbeMsg) error {
 			upperHop: msg.UpperHop,
 			capacity: msg.Capacity,
 			dis:      msg.Distance + 1,
-			updated: false,
+			updated:  false,
 		}
 
 		r.ProbeUpdateTable[msg.Destination] = &UpdateTableEntry{
-			updateTime: time.Now().Unix(),
+			updateTime:  time.Now().Unix(),
 			receiveTime: time.Now().Unix(),
 		}
 		r.rwMu.Unlock()
@@ -339,14 +340,14 @@ func (r *HulaRouter) handleProbe(p *HULAProbeMsg) error {
 			// 不是上一跳发来的probe， 那么再分析两种情况
 		} else {
 			// 如果跳数更少， 则更新
-			if bestHopEntry.dis > msg.Distance + 1 {
+			if bestHopEntry.dis > msg.Distance+1 {
 				bestHopEntry.dis = msg.Distance + 1
 				copy(bestHopEntry.upperHop[:], msg.UpperHop[:])
 				bestHopEntry.capacity = msg.Capacity
 				bestHopEntry.updated = true
 
 				// 跳数相同，保留capacity最大的
-			} else if bestHopEntry.dis == msg.Distance + 1 &&
+			} else if bestHopEntry.dis == msg.Distance+1 &&
 				bestHopEntry.capacity < msg.Capacity {
 				copy(bestHopEntry.upperHop[:], msg.UpperHop[:])
 				bestHopEntry.capacity = msg.Capacity
@@ -399,11 +400,11 @@ func (r *HulaRouter) handleProbe(p *HULAProbeMsg) error {
 		}
 	}
 	/*
-	hulaLog.Debugf("router is :%v",
-		newLogClosure(func() string {
-			return spew.Sdump(r.BestHopTable)
-		}),
-	)
+		hulaLog.Debugf("router is :%v",
+			newLogClosure(func() string {
+				return spew.Sdump(r.BestHopTable)
+			}),
+		)
 	*/
 	return nil
 }

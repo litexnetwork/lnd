@@ -1,12 +1,11 @@
 package routing
 
 type DvRouter interface {
+	handleRequest(req interface{})
 
-	handleRequest (req interface{})
+	handleResponse(res interface{})
 
-	handleResponse (res interface{})
-
-	handleProbe (p interface{})
+	handleProbe(p interface{})
 
 	handleLinkChange(lc interface{})
 

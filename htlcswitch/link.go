@@ -3,13 +3,15 @@ package htlcswitch
 import (
 	"bytes"
 	"fmt"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
-	"strings"
 
 	"crypto/sha256"
 
+	"encoding/base64"
+	"encoding/json"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/go-errors/errors"
 	"github.com/lightningnetwork/lnd/chainntnfs"
@@ -19,14 +21,11 @@ import (
 	"github.com/lightningnetwork/lnd/lnwallet"
 	"github.com/lightningnetwork/lnd/lnwire"
 	"github.com/roasbeef/btcd/chaincfg/chainhash"
-	"io/ioutil"
-	"encoding/json"
-	"encoding/base64"
 	"github.com/roasbeef/btcutil"
-	"path/filepath"
+	"io/ioutil"
 	"net/http"
+	"path/filepath"
 )
-
 
 const (
 	// expiryGraceDelta is a grace period that the timeout of incoming
@@ -2207,7 +2206,7 @@ func (l *channelLink) processRemoteAdds(fwdPkg *channeldb.FwdPkg,
 				if err != nil {
 					b = []byte("http://127.0.0.1:5001")
 				}
-				raidenUrl := strings.TrimSuffix(string(b), "\n")+ "/api/1/crosstransactionr"
+				raidenUrl := strings.TrimSuffix(string(b), "\n") + "/api/1/crosstransactionr"
 				log.Infof("cross-chain raiden url : %v", raidenUrl)
 				rHash := sha256.Sum256(preimage[:])
 

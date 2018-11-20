@@ -82,5 +82,3 @@ func (a *MultiPathRequest) MsgType() MessageType {
 func (a *MultiPathRequest) MaxPayloadLength(pver uint32) uint32 {
 	return 65533
 }
-
-

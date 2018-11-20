@@ -658,7 +658,9 @@ message SendResponseWithHash {
     Route payment_route = 4 [json_name = "payment_route"];
 }
 message SendMultiRequest {
-    repeated string payment_request = 1;
+    int64 amt = 1 [json_name = "amt"];
+    LightningAddress address = 2 [json_name = "address"];
+    int32   path_num = 3 [json_name = "path_num"];
 }
 
 message SendMultiResponse {

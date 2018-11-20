@@ -29,13 +29,13 @@ import (
 	"github.com/lightningnetwork/lnd/lnwire"
 	"github.com/lightningnetwork/lnd/routing"
 	"github.com/lightningnetwork/lnd/routing/RIP"
+	"github.com/lightningnetwork/lnd/routing/hula"
+	"github.com/lightningnetwork/lnd/routing/multipath"
 	"github.com/roasbeef/btcd/btcec"
 	"github.com/roasbeef/btcd/chaincfg/chainhash"
 	"github.com/roasbeef/btcd/connmgr"
 	"github.com/roasbeef/btcd/wire"
 	"github.com/roasbeef/btcutil"
-	"github.com/lightningnetwork/lnd/routing/hula"
-	"github.com/lightningnetwork/lnd/routing/multipath"
 )
 
 var (

@@ -622,9 +622,9 @@ func TestLightningWireProtocol(t *testing.T) {
 			node2, _ := randRawKey()
 			probe := HULAProbe{
 				Destination: node1,
-				UpperHop: node2,
-				Distance: uint8(r.Int31()),
-				Capacity: btcutil.Amount(r.Int63()),
+				UpperHop:    node2,
+				Distance:    uint8(r.Int31()),
+				Capacity:    btcutil.Amount(r.Int63()),
 			}
 			v[0] = reflect.ValueOf(probe)
 		},
@@ -656,6 +656,15 @@ func TestLightningWireProtocol(t *testing.T) {
 			}
 
 			v[0] = reflect.ValueOf(req)
+		},
+		MsgInvoiceResponse: func(v []reflect.Value, i *rand.Rand) {
+			node1, _ := randRawKey()
+			res := InvoiceResponse{
+				RequestID: node1,
+				Error: []byte("test data"),
+				PayReqs: []PaymentRequest{node1[:]},
+			}
+			v[0] = reflect.ValueOf(res)
 		},
 	}
 
@@ -827,20 +836,26 @@ func TestLightningWireProtocol(t *testing.T) {
 			},
 		},
 		{
-			msgType:MsgHULAProbe,
+			msgType: MsgHULAProbe,
 			scenario: func(m HULAProbe) bool {
 				return mainScenario(&m)
 			},
 		},
 		{
-			msgType:MsgHULARequest,
+			msgType: MsgHULARequest,
 			scenario: func(m HULARequest) bool {
 				return mainScenario(&m)
 			},
 		},
 		{
 			msgType: MsgHULAResponse,
-			scenario: func(m HULAResponse) bool{
+			scenario: func(m HULAResponse) bool {
+				return mainScenario(&m)
+			},
+		},
+		{
+			msgType: MsgInvoiceResponse,
+			scenario: func(m InvoiceResponse) bool {
 				return mainScenario(&m)
 			},
 		},

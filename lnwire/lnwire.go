@@ -302,6 +302,9 @@ func writeElement(w io.Writer, element interface{}) error {
 	case []ChannelID:
 		var l [2]byte
 		binary.BigEndian.PutUint16(l[:], uint16(len(e)))
+		if _, err := w.Write(l[:]); err != nil{
+			return err
+		}
 		for _, channelID := range e {
 			if _, err := w.Write(channelID[:]); err != nil {
 				return nil
@@ -344,9 +347,26 @@ func writeElement(w io.Writer, element interface{}) error {
 	case []ShortChannelID:
 		var l [2]byte
 		binary.BigEndian.PutUint16(l[:], uint16(len(e)))
+
+		if _, err := w.Write(l[:]); err != nil {
+			return err
+		}
 		for _, channelID := range e {
 			if err := writeElement(w, channelID); err != nil {
-				return nil
+				return err
+			}
+		}
+	case []PaymentRequest:
+		var l [2]byte
+		binary.BigEndian.PutUint16(l[:], uint16(len(e)))
+
+		if _, err := w.Write(l[:]); err != nil {
+			return err
+		}
+
+		for _, paymentReq := range e {
+			if err := writeElement(w, paymentReq); err != nil {
+				return err
 			}
 		}
 	case *net.TCPAddr:
@@ -424,7 +444,15 @@ func writeElement(w io.Writer, element interface{}) error {
 		if _, err := w.Write(e[:]); err != nil {
 			return err
 		}
-
+	case PaymentRequest:
+		var length [2]byte
+		binary.BigEndian.PutUint16(length[:], uint16(len(e)))
+		if _, err := w.Write(length[:]); err != nil {
+			return err
+		}
+		if _, err := w.Write(e[:]); err != nil {
+			return err
+		}
 	default:
 		return fmt.Errorf("Unknown type in writeElement: %T", e)
 	}
@@ -698,6 +726,23 @@ func readElement(r io.Reader, element interface{}) error {
 		}
 
 		*e = channels
+	case *[]PaymentRequest:
+		var l [2]byte
+		if _, err := io.ReadFull(r, l[:]); err != nil {
+			return err
+		}
+
+		numPayReq := binary.BigEndian.Uint16(l[:])
+		var payReqs []PaymentRequest
+		if numPayReq > 0 {
+			payReqs = make([]PaymentRequest, numPayReq)
+			for i := 0; i < int(numPayReq); i++ {
+				if err := readElement(r, &payReqs[i]); err != nil {
+					return err
+				}
+			}
+		}
+		*e = payReqs
 	case *ShortChannelID:
 		var blockHeight [4]byte
 		if _, err = io.ReadFull(r, blockHeight[1:]); err != nil {
@@ -842,6 +887,21 @@ func readElement(r io.Reader, element interface{}) error {
 
 		var addrBytes [34]byte
 		if length > 34 {
+			return fmt.Errorf("Cannot read %d bytes into addrBytes", length)
+		}
+		if _, err = io.ReadFull(r, addrBytes[:length]); err != nil {
+			return err
+		}
+		*e = addrBytes[:length]
+	case *PaymentRequest:
+		var addrLen [2]byte
+		if _, err = io.ReadFull(r, addrLen[:]); err != nil {
+			return err
+		}
+		length := binary.BigEndian.Uint16(addrLen[:])
+		// TODO(xuehan): 长度要能覆盖最长的payment request
+		var addrBytes [500]byte
+		if length > 500 {
 			return fmt.Errorf("Cannot read %d bytes into addrBytes", length)
 		}
 		if _, err = io.ReadFull(r, addrBytes[:length]); err != nil {

@@ -2,14 +2,14 @@ package routing
 
 import (
 	"bytes"
-	"github.com/roasbeef/btcutil"
-	"time"
 	"crypto/md5"
 	"encoding/hex"
+	"github.com/roasbeef/btcutil"
 	"strconv"
+	"time"
 )
 
-func IfKeyEqual(a, b[33]byte)  bool{
+func IfKeyEqual(a, b [33]byte) bool {
 	return bytes.Equal(a[:], b[:])
 }
 
@@ -22,7 +22,7 @@ func MinAmount(a, b btcutil.Amount) btcutil.Amount {
 }
 
 func GenRequestID(s string) string {
-	str := MD5(strconv.FormatInt(time.Now().UnixNano(),10) + s)
+	str := MD5(strconv.FormatInt(time.Now().UnixNano(), 10) + s)
 	return "0" + str
 }
 
@@ -31,4 +31,3 @@ func MD5(text string) string {
 	ctx.Write([]byte(text))
 	return hex.EncodeToString(ctx.Sum(nil))
 }
-

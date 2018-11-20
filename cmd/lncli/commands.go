@@ -1901,33 +1901,27 @@ var sendPaymentCommand = cli.Command{
 var sendMultiPaymentCommand = cli.Command{
 	Name:     "sendmultipayment",
 	Category: "Payments",
-	Usage:    "Send a payment over lightning.",
+	Usage:    "Send payments over lightning.",
 	Description: `
-	Send a payment over Lightning. One can either specify the full
-	parameters of the payment, or just use a payment request which encodes
-	all the payment details.
-
-	If payment isn't manually specified, then only a payment request needs
-	to be passed using the --pay_req argument.
-
-	If the payment *is* manually specified, then all four alternative
-	arguments need to be specified in order to complete the payment:
-	    * --dest=N
+	
+	多路径支付，在支付金额比较大时，自动拆分成多个路径的小额支付。
+	    * --target=nodePubKey@ip:port
 	    * --amt=A
-	    * --final_cltv_delta=T
-	    * --payment_hash=H
-
-	The --debug_send flag is provided for usage *purely* in test
-	environments. If specified, then the payment hash isn't required, as
-	it'll use the hash of all zeroes. This mode allows one to quickly test
-	payment connectivity without having to create an invoice at the
-	destination.
+		* --path_num=P
 	`,
-	ArgsUsage: "dest amt payment_hash final_cltv_delta | --pay_req=[payment request]",
+	ArgsUsage: "--target=[key@ip:port] --amt=[payment amout] | --path_num=[path num]",
 	Flags: []cli.Flag{
-		cli.StringSliceFlag{
-			Name:  "pay_reqs",
-			Usage: "a zpay32 encoded payment request to fulfill",
+		cli.StringFlag{
+			Name:  "target",
+			Usage: "target node key and address",
+		},
+		cli.Int64Flag{
+			Name: "amt",
+			Usage: "the amount you want to send",
+		},
+		cli.IntFlag{
+			Name: "path_num",
+			Usage: "the number of payments",
 		},
 	},
 	Action: sendMultiPayments,
@@ -1940,13 +1934,24 @@ func sendMultiPayments(ctx *cli.Context) error {
 		return nil
 	}
 
-	var req *lnrpc.SendMultiRequest
-	if ctx.IsSet("pay_reqs") {
-		req = &lnrpc.SendMultiRequest{
-			PaymentRequest: ctx.StringSlice("pay_reqs"),
-		}
+	req := &lnrpc.SendMultiRequest{}
+	if ctx.IsSet("amt") {
+		req.Amt = ctx.Int64("amt")
 	} else {
-		return fmt.Errorf("please input the payment requests.")
+		return fmt.Errorf("please input the total amout")
+	}
+	if ctx.IsSet("target") {
+		strs := strings.Split(ctx.String("target"),"@")
+		if len(strs) != 2 {
+			return fmt.Errorf("please input the correct address")
+		}
+		fmt.Println(strs)
+		req.Address = &lnrpc.LightningAddress{}
+		req.Address.Pubkey = strs[0]
+		req.Address.Host = strs[1]
+	}
+	if ctx.IsSet("path_num") {
+		req.PathNum = int32(ctx.Int("path_num"))
 	}
 	return sendMultiPaymentRequest(ctx, req)
 }
@@ -2088,9 +2093,8 @@ func sendMultiPaymentRequest(ctx *cli.Context, req *lnrpc.SendMultiRequest) erro
 	}
 
 	printJSON(struct {
-		E string       							`json:"payment_error"`
-		P []*lnrpc.SendResponseWithHash       	`json:"payment_responses"`
-
+		E string                        `json:"payment_error"`
+		P []*lnrpc.SendResponseWithHash `json:"payment_responses"`
 	}{
 		E: res.PaymentError,
 		P: res.PaymentResponse,

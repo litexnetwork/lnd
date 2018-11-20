@@ -1,6 +1,5 @@
 package multipath
 
-
 import "github.com/btcsuite/btclog"
 
 // multiPathLog  is a logger that is initialized with no output filters.  This
@@ -41,4 +40,3 @@ func (c logClosure) String() string {
 func newLogClosure(c func() string) logClosure {
 	return logClosure(c)
 }
-

@@ -3,27 +3,28 @@ package multipath
 import (
 	"bytes"
 	"fmt"
+	"github.com/davecgh/go-spew/spew"
 	"github.com/lightningnetwork/lnd/channeldb"
 	"github.com/lightningnetwork/lnd/lnwire"
 	"github.com/lightningnetwork/lnd/routing"
 	"github.com/roasbeef/btcd/btcec"
 	"github.com/roasbeef/btcd/wire"
 	"github.com/roasbeef/btcutil"
+	"math"
 	"net"
 	"sync"
 	"time"
-	"math"
-	"github.com/davecgh/go-spew/spew"
 )
 
 type RouterID [33]byte
 
 const (
 	FindPathMaxDelay = 3
-	UpdateWindow     = 1
-	ProbeSendCycle   = 1
-	ClearCycle 		 = 10
-	BufferSize 		 = 1000
+	UpdateWindow     = 2
+	ProbeSendCycle   = 20
+	ClearCycle       = 100
+	BufferSize       = 1000
+	InvoiceDelay     = 2
 )
 
 type MultiPathRouter struct {
@@ -45,7 +46,13 @@ type MultiPathRouter struct {
 
 	ResponseBuffer chan *MultiPathResponseMsg
 
+	InvoiceRequestBuffer chan *InvoiceRequstMsg
+
+	InvoiceResponseBuffer chan *InvoiceResponseMsg
+
 	RequestPool map[string]chan lnwire.MultiPathResponse
+
+	InvoicePool map[string]chan lnwire.InvoiceResponse
 
 	SendToPeer func(target *btcec.PublicKey, msgs ...lnwire.Message) error
 
@@ -54,6 +61,8 @@ type MultiPathRouter struct {
 	DisconnectPeer func(pubKey *btcec.PublicKey) error
 
 	FindPeerByPubStr func(pubStr string) bool
+
+	AddInvoice func(amount btcutil.Amount) ([]byte, error)
 
 	DB *channeldb.DB
 
@@ -71,10 +80,10 @@ type MultiPathRouter struct {
 }
 
 type BestTableEntry struct {
-	bestHop     RouterID
-	minDis      uint8
-	updatedTime int64
-	updated     bool
+	bestHop      RouterID
+	minDis       uint8
+	updatedTime  int64
+	updated      bool
 	receivedTime int64
 }
 
@@ -99,7 +108,14 @@ func (r *MultiPathRouter) Start() {
 			r.handleRequest(request)
 
 		case response := <-r.ResponseBuffer:
+			multiPathLog.Debugf("调用handle response")
 			r.handleResponse(response)
+
+		case invoiceRequest := <-r.InvoiceRequestBuffer:
+			r.handleInvoiceRequest(invoiceRequest)
+
+		case invoiceResponse := <-r.InvoiceResponseBuffer:
+			r.handleInvoiceResponse(invoiceResponse)
 
 		case <-r.ClearTimer.C:
 			r.clearEntry()
@@ -121,11 +137,11 @@ func (r *MultiPathRouter) Stop() {
 	multiPathLog.Infof("multiPath router stopped")
 }
 func (r *MultiPathRouter) sendProbe() {
-	for neighbour := range r.Neighbours{
+	for neighbour := range r.Neighbours {
 		probe := &lnwire.MultiPathProbe{
 			Destination: r.SelfNode,
-			Distance: 0,
-			UpperHop: r.SelfNode,
+			Distance:    0,
+			UpperHop:    r.SelfNode,
 		}
 		neighbourKey, err := btcec.ParsePubKey(neighbour[:], btcec.S256())
 		if err != nil {
@@ -140,12 +156,12 @@ func (r *MultiPathRouter) sendProbe() {
 	}
 }
 
-func (r *MultiPathRouter) clearEntry ()  {
+func (r *MultiPathRouter) clearEntry() {
 	r.rwMu.Lock()
 	defer r.rwMu.Unlock()
-	for dest, entry := range r.BestRoutingTable{
+	for dest, entry := range r.BestRoutingTable {
 		timeNow := time.Now().Unix()
-		if timeNow - entry.receivedTime >= ClearCycle ||
+		if timeNow-entry.receivedTime >= ClearCycle ||
 			entry.minDis > math.MaxInt8 {
 			delete(r.RoutingTable, dest)
 			delete(r.BestRoutingTable, dest)
@@ -157,23 +173,26 @@ func (r *MultiPathRouter) clearEntry ()  {
 func NewMultiPathRouter(db *channeldb.DB, selfNode [33]byte,
 	addr []net.Addr) *MultiPathRouter {
 	router := &MultiPathRouter{
-		DB:               db,
-		SelfNode:         selfNode,
-		ProbeBuffer:      make(chan *MultiPathProbeMsg, BufferSize),
-		RequestBuffer:    make(chan *MultiPathRequestMsg, BufferSize),
-		ResponseBuffer:   make(chan *MultiPathResponseMsg, BufferSize),
-		Neighbours:       make(map[RouterID]struct{}),
-		RequestPool:      make(map[string]chan lnwire.MultiPathResponse),
-		LinkChangeBuff:   make(chan *LinkChange, BufferSize),
-		RoutingTable:     make(map[RouterID]map[RouterID]uint8),
-		BestRoutingTable: make(map[RouterID]*BestTableEntry),
-		Address:          addr,
-		mu:               sync.Mutex{},
-		rwMu:             sync.RWMutex{},
-		SendTimer:        time.NewTicker(ProbeSendCycle * time.Second),
-		ClearTimer:       time.NewTicker(ClearCycle * time.Second),
-		wg:               sync.WaitGroup{},
-		quit:             make(chan struct{}),
+		DB:                    db,
+		SelfNode:              selfNode,
+		ProbeBuffer:           make(chan *MultiPathProbeMsg, BufferSize),
+		RequestBuffer:         make(chan *MultiPathRequestMsg, BufferSize),
+		ResponseBuffer:        make(chan *MultiPathResponseMsg, BufferSize),
+		InvoiceRequestBuffer:  make(chan *InvoiceRequstMsg, BufferSize),
+		InvoiceResponseBuffer: make(chan *InvoiceResponseMsg, BufferSize),
+		Neighbours:            make(map[RouterID]struct{}),
+		RequestPool:           make(map[string]chan lnwire.MultiPathResponse),
+		InvoicePool:           make(map[string]chan lnwire.InvoiceResponse),
+		LinkChangeBuff:        make(chan *LinkChange, BufferSize),
+		RoutingTable:          make(map[RouterID]map[RouterID]uint8),
+		BestRoutingTable:      make(map[RouterID]*BestTableEntry),
+		Address:               addr,
+		mu:                    sync.Mutex{},
+		rwMu:                  sync.RWMutex{},
+		SendTimer:             time.NewTicker(ProbeSendCycle * time.Second),
+		ClearTimer:            time.NewTicker(ClearCycle * time.Second),
+		wg:                    sync.WaitGroup{},
+		quit:                  make(chan struct{}),
 	}
 	return router
 }
@@ -182,7 +201,7 @@ func (r *MultiPathRouter) handleProbe(msg *MultiPathProbeMsg) {
 	// 如果probe的目的地是当前节点，所以
 	p := msg.msg
 	if bytes.Equal(p.Destination[:], r.SelfNode[:]) {
-	//	multiPathLog.Infof("recieved a probe generated from self: %v", p)
+		//	multiPathLog.Infof("recieved a probe generated from self: %v", p)
 		return
 	}
 
@@ -194,11 +213,11 @@ func (r *MultiPathRouter) handleProbe(msg *MultiPathProbeMsg) {
 		r.RoutingTable[dest][p.UpperHop] = p.Distance + 1
 
 		r.BestRoutingTable[dest] = &BestTableEntry{
-			updated:     false,
-			updatedTime: time.Now().Unix(),
-			bestHop:     p.UpperHop,
-			minDis:      p.Distance + 1,
-			receivedTime:time.Now().Unix(),
+			updated:      false,
+			updatedTime:  time.Now().Unix(),
+			bestHop:      p.UpperHop,
+			minDis:       p.Distance + 1,
+			receivedTime: time.Now().Unix(),
 		}
 
 		for neighbour := range r.Neighbours {
@@ -384,8 +403,8 @@ func (r *MultiPathRouter) handleRequest(req *MultiPathRequestMsg) {
 
 			minDis := uint8(math.MaxUint8)
 			minNeigh := [33]byte{}
-			for neigh, distance := range leftMap{
-				if distance < minDis{
+			for neigh, distance := range leftMap {
+				if distance < minDis {
 					copy(minNeigh[:], neigh[:])
 					minDis = distance
 				}
@@ -422,6 +441,13 @@ func (r *MultiPathRouter) handleRequest(req *MultiPathRequestMsg) {
 // TODO(xuehan): add the support for multi-path
 func (r *MultiPathRouter) handleResponse(msg *MultiPathResponseMsg) {
 	res := msg.msg
+
+	multiPathLog.Infof("MultiPathResponse is :%v",
+		newLogClosure(func() string {
+			return spew.Sdump(msg)
+		}),
+	)
+
 	// 说明response已经回到了发起节点
 	if bytes.Equal(res.PathNodes[0][:], r.SelfNode[:]) {
 		if res.Success == 1 {
@@ -486,12 +512,12 @@ func (r *MultiPathRouter) handleLinkChange(change *LinkChange) {
 			delete(r.RoutingTable, change.NeighbourID)
 			r.rwMu.Unlock()
 
-			for neighbour := range r.Neighbours{
+			for neighbour := range r.Neighbours {
 				probe := &lnwire.MultiPathProbe{
 					Destination: change.NeighbourID,
-					Distance: math.MaxUint8,
-					UpperHop: r.SelfNode,
-					Capacity: 0,
+					Distance:    math.MaxUint8,
+					UpperHop:    r.SelfNode,
+					Capacity:    0,
 				}
 				neighbourKey, err := btcec.ParsePubKey(neighbour[:], btcec.S256())
 				if err != nil {
@@ -508,12 +534,56 @@ func (r *MultiPathRouter) handleLinkChange(change *LinkChange) {
 				"to neighbours")
 		}
 	}
-	multiPathLog.Infof("multiPath router solved the linkchange " +
+	multiPathLog.Infof("multiPath router solved the linkchange "+
 		"neighbours is %v", r.Neighbours)
 }
 
-func (r *MultiPathRouter) FindPath(dest [33]byte, amt btcutil.Amount) (
-	[][]wire.OutPoint,[][][33]byte, error) {
+func (r *MultiPathRouter) handleInvoiceRequest(msg *InvoiceRequstMsg) {
+	req := msg.msg
+	avgAmt := req.Amount / btcutil.Amount(req.PathNum)
+
+	invoiceResponse := &lnwire.InvoiceResponse{
+		RequestID: req.RequestID,
+		PayReqs: make([]lnwire.PaymentRequest, 0),
+	}
+	for i := 0; i < int(req.PathNum); i++ {
+		payReq, err := r.AddInvoice(avgAmt)
+		if err != nil {
+			multiPathLog.Errorf("add invoice failed:%v", err)
+			invoiceResponse.Error = []byte(err.Error())
+			err = r.SendToPeer(msg.addr.IdentityKey, invoiceResponse)
+			if err != nil {
+				multiPathLog.Errorf("send Error response to source failed :%v", err)
+			}
+			return
+		}
+		invoiceResponse.PayReqs = append(invoiceResponse.PayReqs, payReq)
+	}
+
+	multiPathLog.Infof("new invoiceResponse is :%v",
+		newLogClosure(func() string {
+			return spew.Sdump(invoiceResponse)
+		}),
+	)
+
+	err := r.SendToPeer(msg.addr.IdentityKey, invoiceResponse)
+	if err != nil {
+		multiPathLog.Errorf("send response to source failed:%v", err)
+	}
+}
+
+func (r *MultiPathRouter) handleInvoiceResponse(msg *InvoiceResponseMsg) {
+	res := msg.msg
+	if _, ok := r.InvoicePool[string(res.RequestID[:])]; ok {
+		r.InvoicePool[string(res.RequestID[:])] <- *res
+	} else {
+		multiPathLog.Errorf("cann't find the entry in invoicePool")
+	}
+}
+
+func (r *MultiPathRouter) FindPath(dest [33]byte, amt btcutil.Amount,
+	requestID []byte) (
+	[][]wire.OutPoint, [][][33]byte, error) {
 	r.rwMu.RLock()
 	entry, ok := r.BestRoutingTable[dest]
 	r.rwMu.RUnlock()
@@ -525,12 +595,20 @@ func (r *MultiPathRouter) FindPath(dest [33]byte, amt btcutil.Amount) (
 		Addresses:    r.Address,
 		DestNodeID:   dest,
 	}
-	requestID := []byte(routing.GenRequestID(string(r.SelfNode[:])))
-	copy(multiPathRequest.RequestID[:], requestID)
+	if requestID == nil {
+		copy(requestID, []byte(routing.GenRequestID(string(r.SelfNode[:]))))
+		copy(multiPathRequest.RequestID[:],requestID)
+	} else {
+		copy(multiPathRequest.RequestID[:], requestID)
+	}
 	multiPathRequest.PathNodes = append(multiPathRequest.PathNodes, r.SelfNode)
 	multiPathRequest.PathChannels = append(multiPathRequest.PathChannels, wire.OutPoint{})
 
-	multiPathLog.Infof("new hualRequest is :%v", multiPathRequest)
+	multiPathLog.Infof("new MultiPathRequest is :%v",
+		newLogClosure(func() string {
+			return spew.Sdump(multiPathRequest)
+		}),
+	)
 
 	r.mu.Lock()
 	r.RequestPool[string(requestID)] = make(chan lnwire.MultiPathResponse)
@@ -551,8 +629,8 @@ func (r *MultiPathRouter) FindPath(dest [33]byte, amt btcutil.Amount) (
 
 		minDis := uint8(math.MaxUint8)
 		minNeigh := [33]byte{}
-		for neigh, distance := range leftMap{
-			if distance < minDis{
+		for neigh, distance := range leftMap {
+			if distance < minDis {
 				copy(minNeigh[:], neigh[:])
 				minDis = distance
 			}
@@ -576,8 +654,8 @@ func (r *MultiPathRouter) FindPath(dest [33]byte, amt btcutil.Amount) (
 		return nil, nil, err
 	}
 
-	resultChannels := make([][]wire.OutPoint,0)
-	resultNodes := make([][][33]byte,0)
+	resultChannels := make([][]wire.OutPoint, 0)
+	resultNodes := make([][][33]byte, 0)
 	for {
 		select {
 		case response := <-r.RequestPool[string(requestID)]:
@@ -589,6 +667,45 @@ func (r *MultiPathRouter) FindPath(dest [33]byte, amt btcutil.Amount) (
 			}
 			return nil, nil, fmt.Errorf("timeout for the routing path\n")
 		}
+	}
+}
+
+func (r MultiPathRouter) PullInvoices(target *lnwire.NetAddress, amt btcutil.Amount,
+	pathNum uint8, requestID [33]byte) ([]lnwire.PaymentRequest, error) {
+
+	invoiceReq := &lnwire.InvoiceRequest{
+		PathNum:   pathNum,
+		Amount:    amt,
+		RequestID: requestID,
+	}
+	r.InvoicePool[string(requestID[:])] = make(chan lnwire.InvoiceResponse)
+	if !r.FindPeerByPubStr(string(target.IdentityKey.SerializeCompressed())) {
+		err := r.ConnectToPeer(target, false)
+		if err != nil {
+			multiPathLog.Errorf("can't connect to target: %v", err)
+			return nil, err
+		}
+		defer func() {
+			err = r.DisconnectPeer(target.IdentityKey)
+			multiPathLog.Errorf("disconnect ")
+		}()
+	}
+
+	err := r.SendToPeer(target.IdentityKey, invoiceReq)
+	if err != nil {
+		multiPathLog.Errorf("send invoice request failed :%v", err)
+	}
+
+	select {
+	case response := <-r.InvoicePool[string(requestID[:])]:
+		multiPathLog.Debugf("invoice is :%v",
+			newLogClosure(func() string {
+			return spew.Sdump(response)
+			}),
+		)
+		return response.PayReqs, nil
+	case <-time.After(InvoiceDelay * time.Second):
+		return nil, fmt.Errorf("timeout for pulling invoice failed")
 	}
 }
 
@@ -604,6 +721,16 @@ type MultiPathRequestMsg struct {
 
 type MultiPathResponseMsg struct {
 	msg  *lnwire.MultiPathResponse
+	addr *lnwire.NetAddress
+}
+
+type InvoiceRequstMsg struct {
+	msg  *lnwire.InvoiceRequest
+	addr *lnwire.NetAddress
+}
+
+type InvoiceResponseMsg struct {
+	msg  *lnwire.InvoiceResponse
 	addr *lnwire.NetAddress
 }
 
@@ -623,7 +750,7 @@ func (r *MultiPathRouter) ProcessMultiPathUpdateMsg(msg *lnwire.MultiPathProbe,
 // update router table.
 func (r *MultiPathRouter) ProcessMultiPathRequestMsg(msg *lnwire.MultiPathRequest,
 	peerAddress *lnwire.NetAddress) {
-//	multiPathLog.Infof("recieved the multiPath request:%v from %v", msg, peerAddress)
+	//	multiPathLog.Infof("recieved the multiPath request:%v from %v", msg, peerAddress)
 	select {
 	case r.RequestBuffer <- &MultiPathRequestMsg{msg, peerAddress}:
 	case <-r.quit:
@@ -636,9 +763,32 @@ func (r *MultiPathRouter) ProcessMultiPathRequestMsg(msg *lnwire.MultiPathReques
 func (r *MultiPathRouter) ProcessMultiPathResponseMsg(msg *lnwire.MultiPathResponse,
 	peerAddress *lnwire.NetAddress) {
 
-//	multiPathLog.Infof("recieved the multiPath response:%v from %v", msg, peerAddress)
+	multiPathLog.Infof("recieved the multiPath response:%v from %v", msg, peerAddress)
 	select {
 	case r.ResponseBuffer <- &MultiPathResponseMsg{msg, peerAddress}:
+		multiPathLog.Debugf("写入了buffer中")
+	case <-r.quit:
+		return
+	}
+}
+
+func (r *MultiPathRouter) ProcessInvoiceRequestMsg(msg *lnwire.InvoiceRequest,
+	peerAddress *lnwire.NetAddress) {
+
+	//	multiPathLog.Infof("recieved the multiPath response:%v from %v", msg, peerAddress)
+	select {
+	case r.InvoiceRequestBuffer <- &InvoiceRequstMsg{msg, peerAddress}:
+	case <-r.quit:
+		return
+	}
+}
+
+func (r *MultiPathRouter) ProcessInvoiceResponseMsg(msg *lnwire.InvoiceResponse,
+	peerAddress *lnwire.NetAddress) {
+
+	//	multiPathLog.Infof("recieved the multiPath response:%v from %v", msg, peerAddress)
+	select {
+	case r.InvoiceResponseBuffer <- &InvoiceResponseMsg{msg, peerAddress}:
 	case <-r.quit:
 		return
 	}
@@ -651,5 +801,3 @@ func copyMap(m map[RouterID]uint8) map[RouterID]uint8 {
 	}
 	return result
 }
-
-
